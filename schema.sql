@@ -1,7 +1,8 @@
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL
+  password_hash TEXT NOT NULL,
+  is_admin INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS files (
@@ -9,5 +10,7 @@ CREATE TABLE IF NOT EXISTS files (
   owner TEXT NOT NULL,
   filename TEXT NOT NULL,
   content TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  share_token TEXT,
+  share_expires_at INTEGER
 );

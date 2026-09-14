@@ -4,7 +4,7 @@
 
 import { verifySessionToken, getCookie, SESSION_COOKIE_NAME } from "./_lib/auth.js";
 
-const PROTECTED_PATHS = ["/api/upload", "/api/download", "/api/list", "/api/logout"];
+const PROTECTED_PATHS = ["/api/upload", "/api/download", "/api/list", "/api/logout", "/api/delete", "/api/share"];
 const ADMIN_PATHS = ["/api/admin"];
 
 export async function onRequest(context) {

@@ -56,8 +56,36 @@
     border-bottom: 1px solid #2a2e38;
     font-size: 14px;
   }
-  li button { width: auto; padding: 4px 12px; font-size: 12px; }
+  li button { width: auto; padding: 4px 10px; font-size: 12px; margin-left: 6px; }
+  li .filename { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  li .actions { display: flex; flex-shrink: 0; }
+  button.danger { background: #dc2626; }
+  button.outline { background: transparent; border: 1px solid #3b82f6; }
   #app-section { display: none; }
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-box {
+    background: #1a1d24;
+    border: 1px solid #2a2e38;
+    border-radius: 10px;
+    padding: 20px;
+    width: 90%;
+    max-width: 420px;
+  }
+  .modal-box h3 { margin-top: 0; }
+  .modal-box input {
+    font-size: 12px;
+    background: #0f1115;
+  }
+  .modal-box .hint { font-size: 12px; color: #9ca3af; margin: -8px 0 14px; }
 </style>
 </head>
 <body>
@@ -216,13 +244,103 @@ async function loadFiles() {
 
   data.files.forEach((f) => {
     const li = document.createElement('li');
-    li.innerHTML = `<span>${f.filename}</span>`;
-    const btn = document.createElement('button');
-    btn.textContent = '下載';
-    btn.onclick = () => downloadFile(f.id, f.filename);
-    li.appendChild(btn);
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'filename';
+    nameSpan.textContent = f.filename;
+    li.appendChild(nameSpan);
+
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+
+    const downloadBtn = document.createElement('button');
+    downloadBtn.textContent = '下載';
+    downloadBtn.onclick = () => downloadFile(f.id, f.filename);
+    actions.appendChild(downloadBtn);
+
+    const shareBtn = document.createElement('button');
+    shareBtn.className = 'outline';
+    shareBtn.textContent = '分享';
+    shareBtn.onclick = () => shareFile(f.id);
+    actions.appendChild(shareBtn);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'danger';
+    deleteBtn.textContent = '刪除';
+    deleteBtn.onclick = () => deleteFile(f.id);
+    actions.appendChild(deleteBtn);
+
+    li.appendChild(actions);
     list.appendChild(li);
   });
+}
+
+async function shareFile(id) {
+  const res = await fetch('/api/share', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id })
+  });
+  const data = await res.json();
+
+  if (!res.ok) {
+    alert(data.error || '產生分享連結失敗');
+    return;
+  }
+
+  const input = document.getElementById('share-link-input');
+  input.value = data.url;
+
+  const expireMsg = document.getElementById('share-expire-msg');
+  const expireDate = new Date(data.expiresAt);
+  expireMsg.textContent = `此連結將於 ${expireDate.toLocaleString()} 失效`;
+  expireMsg.className = 'msg';
+
+  document.getElementById('share-modal').classList.add('show');
+  input.select();
+}
+
+function closeShareModal() {
+  document.getElementById('share-modal').classList.remove('show');
+}
+
+function copyShareLink() {
+  const input = document.getElementById('share-link-input');
+  input.select();
+
+  const showCopied = () => {
+    const msg = document.getElementById('share-expire-msg');
+    const base = msg.textContent.replace(/^已複製到剪貼簿！\s*/, '');
+    msg.textContent = '已複製到剪貼簿！' + base;
+  };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(input.value).then(showCopied).catch(() => {
+      document.execCommand('copy');
+      showCopied();
+    });
+  } else {
+    document.execCommand('copy');
+    showCopied();
+  }
+}
+
+async function deleteFile(id) {
+  if (!confirm('確定要刪除這個檔案嗎？此動作無法復原。')) return;
+
+  const res = await fetch('/api/delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id })
+  });
+  const data = await res.json();
+
+  if (!res.ok) {
+    alert(data.error || '刪除失敗');
+    return;
+  }
+
+  loadFiles();
 }
 
 async function downloadFile(id, filename) {
@@ -245,6 +363,18 @@ async function downloadFile(id, filename) {
   }
 })();
 </script>
+
+
+<div id="share-modal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>🔗 公開分享連結</h3>
+    <p class="hint">任何拿到這個連結的人都可以下載此檔案，連結將在 24 小時後自動失效。</p>
+    <input id="share-link-input" readonly />
+    <div id="share-expire-msg" class="msg"></div>
+    <button onclick="copyShareLink()">複製連結</button>
+    <button class="secondary" onclick="closeShareModal()">關閉</button>
+  </div>
+</div>
 
 </body>
 </html>

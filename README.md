@@ -19,6 +19,13 @@ wrangler d1 create my-database
 wrangler d1 execute my-database --remote --file=schema.sql
 ```
 
+> 若你是「既有」資料庫升級（之前已經執行過舊版 schema.sql），還需要額外執行：
+> ```bash
+> wrangler d1 execute my-database --remote --file=schema_update_admin.sql
+> wrangler d1 execute my-database --remote --file=schema_update_share.sql
+> ```
+> 全新安裝的話，新版 schema.sql 已經包含所有欄位，不需要再執行這兩個檔案。
+
 ## 3. 部署 Pages 專案
 在 my-project 資料夾內：
 ```bash
@@ -60,3 +67,10 @@ wrangler pages deploy .
 ## 注意事項
 - 檔案內容是以 base64 存進 D1，適合小檔案（建議在幾 MB 以內）。若要存放大型檔案，建議改用 Cloudflare R2。
 - `functions/api/register.js` 目前任何人都能自行註冊，正式使用時建議加上邀請碼機制，或部署後直接刪除該端點改由你手動用 D1 指令新增帳號。
+
+## 本次新增功能
+1. **公開分享連結**：在「我的檔案」清單點「分享」，會產生一個不需登入即可下載的連結，連結**僅 24 小時內有效**，過期後自動失效（每次點分享都會重新產生新連結、重設 24 小時效期）。
+2. **使用者自行刪除檔案**：在「我的檔案」清單點「刪除」即可刪除自己上傳的檔案。
+3. **管理員可重置使用者密碼**：管理員後台每個帳號旁多了「重置密碼」按鈕，系統會自動產生一組新密碼並顯示一次，請自行複製轉交給使用者。
+4. **管理員可新增管理員**：管理員後台新增一個表單，可直接建立新的管理員帳號。
+5. **管理員後台閒置 300 秒自動登出**：管理員登入後，若 5 分鐘（300 秒）內沒有任何滑鼠、鍵盤或觸控操作，會自動登出並回到登入畫面。

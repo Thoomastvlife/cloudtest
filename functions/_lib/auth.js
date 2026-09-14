@@ -109,3 +109,18 @@ export function getCookie(request, name) {
 }
 
 export const SESSION_MAX_AGE = SESSION_MAX_AGE_SECONDS;
+
+// ---------- 隨機權杖 / 隨機密碼 ----------
+
+// 產生一組隨機的分享用權杖（32 bytes -> 64 碼 hex）
+export function generateToken() {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return bufToHex(bytes.buffer);
+}
+
+// 給管理員「重置密碼」用：產生一組人類可讀、避免混淆字元(0/O/1/l 等)的隨機密碼
+export function generateRandomPassword(length = 10) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
+}
