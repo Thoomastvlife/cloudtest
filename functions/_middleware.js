@@ -5,14 +5,16 @@
 import { verifySessionToken, getCookie, SESSION_COOKIE_NAME } from "./_lib/auth.js";
 
 const PROTECTED_PATHS = ["/api/upload", "/api/download", "/api/list", "/api/logout"];
+const ADMIN_PATHS = ["/api/admin"];
 
 export async function onRequest(context) {
   const { request, env, next } = context;
   const url = new URL(request.url);
 
   const needsAuth = PROTECTED_PATHS.some((p) => url.pathname.startsWith(p));
+  const needsAdmin = ADMIN_PATHS.some((p) => url.pathname.startsWith(p));
 
-  if (needsAuth) {
+  if (needsAuth || needsAdmin) {
     const token = getCookie(request, SESSION_COOKIE_NAME);
     const payload = token ? await verifySessionToken(token, env.SESSION_SECRET) : null;
 
@@ -25,6 +27,19 @@ export async function onRequest(context) {
 
     // 把登入使用者的資訊往下傳給實際的 API handler
     context.data.username = payload.username;
+
+    if (needsAdmin) {
+      const user = await env.DB.prepare("SELECT is_admin FROM users WHERE username = ?")
+        .bind(payload.username)
+        .first();
+
+      if (!user || !user.is_admin) {
+        return new Response(JSON.stringify({ error: "沒有管理員權限" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    }
   }
 
   return next();

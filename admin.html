@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>管理員後台</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif;
+    background: #0f1115;
+    color: #e6e6e6;
+    max-width: 720px;
+    margin: 40px auto;
+    padding: 0 16px;
+  }
+  h1 { font-size: 22px; margin-bottom: 24px; }
+  h3 { margin-top: 0; }
+  .card {
+    background: #1a1d24;
+    border: 1px solid #2a2e38;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  input {
+    width: 100%;
+    padding: 10px;
+    margin: 6px 0 14px;
+    border-radius: 6px;
+    border: 1px solid #333;
+    background: #0f1115;
+    color: #eee;
+  }
+  button {
+    padding: 10px;
+    border-radius: 6px;
+    border: none;
+    background: #3b82f6;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  button.danger { background: #dc2626; padding: 4px 10px; font-size: 12px; }
+  #login-box button { width: 100%; }
+  .msg { font-size: 13px; margin-top: 8px; min-height: 18px; }
+  .msg.error { color: #f87171; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 4px; border-bottom: 1px solid #2a2e38; }
+  #app-section { display: none; }
+</style>
+</head>
+<body>
+
+<h1>🛠️ 管理員後台</h1>
+
+<div id="login-box" class="card">
+  <h3>管理員登入</h3>
+  <input id="login-username" placeholder="帳號" />
+  <input id="login-password" type="password" placeholder="密碼" />
+  <button onclick="login()">登入</button>
+  <div id="login-msg" class="msg"></div>
+</div>
+
+<div id="app-section">
+  <div class="card">
+    <h3>所有使用者</h3>
+    <table id="users-table">
+      <thead><tr><th>帳號</th><th>管理員</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>所有檔案</h3>
+    <table id="files-table">
+      <thead><tr><th>擁有者</th><th>檔名</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+async function login() {
+  const username = document.getElementById('login-username').value;
+  const password = document.getElementById('login-password').value;
+  const msg = document.getElementById('login-msg');
+  msg.textContent = '';
+
+  const res = await fetch('/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+
+  if (!res.ok) {
+    const data = await res.json();
+    msg.textContent = data.error || '登入失敗';
+    msg.className = 'msg error';
+    return;
+  }
+
+  const check = await fetch('/api/admin/users');
+  if (!check.ok) {
+    msg.textContent = '此帳號沒有管理員權限';
+    msg.className = 'msg error';
+    return;
+  }
+
+  document.getElementById('login-box').style.display = 'none';
+  document.getElementById('app-section').style.display = 'block';
+  loadUsers();
+  loadFiles();
+}
+
+async function loadUsers() {
+  const res = await fetch('/api/admin/users');
+  const data = await res.json();
+  const tbody = document.querySelector('#users-table tbody');
+  tbody.innerHTML = '';
+
+  data.users.forEach((u) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${u.username}</td><td>${u.is_admin ? '是' : '否'}</td>`;
+    const td = document.createElement('td');
+    const btn = document.createElement('button');
+    btn.className = 'danger';
+    btn.textContent = '刪除';
+    btn.onclick = () => deleteUser(u.id);
+    td.appendChild(btn);
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+  });
+}
+
+async function loadFiles() {
+  const res = await fetch('/api/admin/files');
+  const data = await res.json();
+  const tbody = document.querySelector('#files-table tbody');
+  tbody.innerHTML = '';
+
+  data.files.forEach((f) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${f.owner}</td><td>${f.filename}</td>`;
+    const td = document.createElement('td');
+    const btn = document.createElement('button');
+    btn.className = 'danger';
+    btn.textContent = '刪除';
+    btn.onclick = () => deleteFile(f.id);
+    td.appendChild(btn);
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+  });
+}
+
+async function deleteUser(id) {
+  if (!confirm('確定要刪除這個使用者？他的所有檔案也會一併刪除。')) return;
+  const res = await fetch('/api/admin/delete-user', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id })
+  });
+  const data = await res.json();
+  if (!res.ok) return alert(data.error || '刪除失敗');
+  loadUsers();
+  loadFiles();
+}
+
+async function deleteFile(id) {
+  if (!confirm('確定要刪除這個檔案？')) return;
+  await fetch('/api/admin/delete-file', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id })
+  });
+  loadFiles();
+}
+</script>
+
+</body>
+</html>
