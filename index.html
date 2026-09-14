@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>臨時檔案庫</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif;
+    background: #0f1115;
+    color: #e6e6e6;
+    max-width: 480px;
+    margin: 40px auto;
+    padding: 0 16px;
+  }
+  h1 { font-size: 22px; margin-bottom: 24px; }
+  .card {
+    background: #1a1d24;
+    border: 1px solid #2a2e38;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  input {
+    width: 100%;
+    padding: 10px;
+    margin: 6px 0 14px;
+    border-radius: 6px;
+    border: 1px solid #333;
+    background: #0f1115;
+    color: #eee;
+  }
+  button {
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+    border: none;
+    background: #3b82f6;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  button.secondary { background: #333; }
+  button:hover { opacity: 0.9; }
+  .msg { font-size: 13px; margin-top: 8px; min-height: 18px; }
+  .msg.error { color: #f87171; }
+  .msg.ok { color: #4ade80; }
+  ul { list-style: none; padding: 0; }
+  li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #2a2e38;
+    font-size: 14px;
+  }
+  li button { width: auto; padding: 4px 12px; font-size: 12px; }
+  #app-section { display: none; }
+</style>
+</head>
+<body>
+
+<h1>📦 臨時檔案庫</h1>
+
+<div id="auth-section" class="card">
+  <div id="login-box">
+    <h3>登入</h3>
+    <input id="login-username" placeholder="帳號" />
+    <input id="login-password" type="password" placeholder="密碼" />
+    <button onclick="login()">登入</button>
+    <button class="secondary" onclick="toggleForm('register')">還沒有帳號？註冊</button>
+    <div id="login-msg" class="msg"></div>
+  </div>
+
+  <div id="register-box" style="display:none">
+    <h3>註冊</h3>
+    <input id="register-username" placeholder="帳號" />
+    <input id="register-password" type="password" placeholder="密碼（至少 6 碼）" />
+    <button onclick="register()">註冊</button>
+    <button class="secondary" onclick="toggleForm('login')">已經有帳號？登入</button>
+    <div id="register-msg" class="msg"></div>
+  </div>
+</div>
+
+<div id="app-section">
+  <div class="card">
+    <p>已登入：<strong id="current-user"></strong> <button class="secondary" style="width:auto;padding:4px 12px;float:right" onclick="logout()">登出</button></p>
+  </div>
+
+  <div class="card">
+    <h3>上傳檔案</h3>
+    <input id="file-input" type="file" />
+    <button onclick="uploadFile()">上傳</button>
+    <div id="upload-msg" class="msg"></div>
+  </div>
+
+  <div class="card">
+    <h3>我的檔案</h3>
+    <ul id="file-list"></ul>
+  </div>
+</div>
+
+<script>
+function toggleForm(which) {
+  document.getElementById('login-box').style.display = which === 'login' ? 'block' : 'none';
+  document.getElementById('register-box').style.display = which === 'register' ? 'block' : 'none';
+}
+
+async function register() {
+  const username = document.getElementById('register-username').value;
+  const password = document.getElementById('register-password').value;
+  const msg = document.getElementById('register-msg');
+  msg.textContent = '';
+
+  const res = await fetch('/api/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+  const data = await res.json();
+
+  if (res.ok) {
+    msg.textContent = '註冊成功，請登入';
+    msg.className = 'msg ok';
+    toggleForm('login');
+  } else {
+    msg.textContent = data.error || '註冊失敗';
+    msg.className = 'msg error';
+  }
+}
+
+async function login() {
+  const username = document.getElementById('login-username').value;
+  const password = document.getElementById('login-password').value;
+  const msg = document.getElementById('login-msg');
+  msg.textContent = '';
+
+  const res = await fetch('/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+  const data = await res.json();
+
+  if (res.ok) {
+    showApp(username);
+  } else {
+    msg.textContent = data.error || '登入失敗';
+    msg.className = 'msg error';
+  }
+}
+
+async function logout() {
+  await fetch('/api/logout', { method: 'POST' });
+  document.getElementById('app-section').style.display = 'none';
+  document.getElementById('auth-section').style.display = 'block';
+}
+
+function showApp(username) {
+  document.getElementById('auth-section').style.display = 'none';
+  document.getElementById('app-section').style.display = 'block';
+  document.getElementById('current-user').textContent = username;
+  loadFiles();
+}
+
+async function uploadFile() {
+  const input = document.getElementById('file-input');
+  const msg = document.getElementById('upload-msg');
+  msg.textContent = '';
+
+  if (!input.files.length) {
+    msg.textContent = '請先選擇檔案';
+    msg.className = 'msg error';
+    return;
+  }
+
+  const file = input.files[0];
+  const reader = new FileReader();
+
+  reader.onload = async () => {
+    const base64 = reader.result.split(',')[1];
+
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: file.name, contentBase64: base64 })
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      msg.textContent = '上傳成功';
+      msg.className = 'msg ok';
+      input.value = '';
+      loadFiles();
+    } else {
+      msg.textContent = data.error || '上傳失敗，請重新登入';
+      msg.className = 'msg error';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function loadFiles() {
+  const res = await fetch('/api/list');
+  if (!res.ok) {
+    // session 過期，跳回登入畫面
+    document.getElementById('app-section').style.display = 'none';
+    document.getElementById('auth-section').style.display = 'block';
+    return;
+  }
+  const data = await res.json();
+  const list = document.getElementById('file-list');
+  list.innerHTML = '';
+
+  data.files.forEach((f) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span>${f.filename}</span>`;
+    const btn = document.createElement('button');
+    btn.textContent = '下載';
+    btn.onclick = () => downloadFile(f.id, f.filename);
+    li.appendChild(btn);
+    list.appendChild(li);
+  });
+}
+
+async function downloadFile(id, filename) {
+  const res = await fetch(`/api/download?id=${id}`);
+  if (!res.ok) return alert('下載失敗');
+  const data = await res.json();
+
+  const link = document.createElement('a');
+  link.href = `data:application/octet-stream;base64,${data.contentBase64}`;
+  link.download = data.filename || filename;
+  link.click();
+}
+
+// 頁面載入時先確認是否已經登入（有效 session）
+(async () => {
+  const res = await fetch('/api/list');
+  if (res.ok) {
+    // 有效登入中，但不知道 username，簡易處理：顯示為「已登入」
+    showApp('（登入中）');
+  }
+})();
+</script>
+
+</body>
+</html>
