@@ -69,7 +69,7 @@
 
 <div id="app-section">
   <div class="card top-bar">
-    <p class="idle-note">閒置超過 5 分鐘（300 秒）將自動登出</p>
+    <p class="idle-note">閒置將自動登出，剩餘 <span id="idle-countdown">300</span> 秒</p>
     <button class="secondary small" onclick="logout()">登出</button>
   </div>
 
@@ -137,8 +137,17 @@ const IDLE_LIMIT_MS = 300 * 1000;
 let lastActivityAt = Date.now();
 let idleCheckInterval = null;
 
+function updateIdleCountdownDisplay() {
+  const el = document.getElementById('idle-countdown');
+  if (!el) return;
+  const remainingMs = IDLE_LIMIT_MS - (Date.now() - lastActivityAt);
+  const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
+  el.textContent = remainingSec;
+}
+
 function markActivity() {
   lastActivityAt = Date.now();
+  updateIdleCountdownDisplay();
 }
 
 function startIdleTimer() {
@@ -148,6 +157,7 @@ function startIdleTimer() {
   });
   if (idleCheckInterval) clearInterval(idleCheckInterval);
   idleCheckInterval = setInterval(() => {
+    updateIdleCountdownDisplay();
     if (Date.now() - lastActivityAt > IDLE_LIMIT_MS) {
       stopIdleTimer();
       logout('閒置超過 5 分鐘，已自動登出，請重新登入');
