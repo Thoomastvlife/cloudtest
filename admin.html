@@ -10,7 +10,7 @@
     font-family: -apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif;
     background: #0f1115;
     color: #e6e6e6;
-    max-width: 720px;
+    max-width: 780px;
     margin: 40px auto;
     padding: 0 16px;
   }
@@ -65,12 +65,11 @@
   .msg.ok { color: #4ade80; }
   .hint { font-size: 12px; color: #9ca3af; margin: -4px 0 14px; }
 
-  /* 表單橫排（窄螢幕自動折行） */
   .form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
-  .form-row input { flex: 1 1 180px; width: auto; margin: 0 0 4px; }
+  .form-row input { flex: 1 1 160px; width: auto; margin: 0 0 4px; }
+  .form-row input.narrow { flex: 0 1 130px; }
   .form-row button { flex: 0 0 auto; }
 
-  /* 表格 */
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th {
     text-align: left;
@@ -86,6 +85,8 @@
   td.dim { color: #9ca3af; white-space: nowrap; }
   td.act { text-align: right; white-space: nowrap; }
   .empty td { color: #9ca3af; font-size: 13px; text-align: center; padding: 18px 8px; }
+  .sub { display: block; color: #9ca3af; font-size: 12px; margin-top: 2px; }
+  .over { color: #f87171; }
 
   .badge {
     display: inline-block;
@@ -97,30 +98,42 @@
   }
   .badge.admin { background: #1e3a5f; color: #93c5fd; }
 
-  /* 未登入的鎖住清單 */
-  .locked td { color: #4b5563; }
-  .locked .name { letter-spacing: 1px; }
-  .locked .lock { color: #d8a443; margin-right: 8px; }
-
-  /* 頂端狀態列 */
   .top-line { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
   .top-line p { margin: 0; font-size: 14px; }
   .top-line .idle { display: block; color: #9ca3af; font-size: 12px; margin-top: 4px; }
   .top-line .idle.warn { color: #fbbf24; }
 
-  /* 分頁 */
   .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
-  .tab {
+  .tab { background: #1a1d24; border: 1px solid #2a2e38; color: #9ca3af; font-weight: normal; }
+  .tab[aria-selected="true"] { background: #3b82f6; border-color: #3b82f6; color: #fff; font-weight: bold; }
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 16px;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-box {
     background: #1a1d24;
     border: 1px solid #2a2e38;
-    color: #9ca3af;
-    font-weight: normal;
+    border-radius: 10px;
+    padding: 20px;
+    width: 100%;
+    max-width: 420px;
   }
-  .tab[aria-selected="true"] { background: #3b82f6; border-color: #3b82f6; color: #fff; font-weight: bold; }
+  .modal-box h3 { margin: 0 0 14px; font-size: 15px; }
+  .modal-box label { display: block; font-size: 13px; margin-bottom: 2px; }
+  .modal-box .buttons { display: flex; gap: 10px; }
+  .modal-box .buttons button { flex: 1; }
 
   [hidden] { display: none !important; }
 
-  @media (max-width: 520px) {
+  @media (max-width: 560px) {
     th:nth-child(3), td:nth-child(3) { display: none; }
   }
 </style>
@@ -132,16 +145,6 @@
 
 <!-- ============ 未登入 ============ -->
 <div id="view-locked">
-  <div class="card">
-    <h3>🔒 檔案清單（需登入）</h3>
-    <table class="locked">
-      <thead>
-        <tr><th>名稱</th><th>擁有者</th><th>時間</th><th></th></tr>
-      </thead>
-      <tbody id="locked-rows"></tbody>
-    </table>
-  </div>
-
   <div class="card">
     <h3>管理員登入</h3>
     <input id="login-username" placeholder="帳號" autocomplete="username" />
@@ -194,10 +197,14 @@
   <div id="pane-users" hidden>
     <div class="card">
       <h3>新增一般使用者</h3>
-      <p class="hint">先設一組起始密碼交給對方，使用者登入首頁後可以自行變更密碼。</p>
+      <p class="hint">先設一組起始密碼交給對方，使用者登入首頁後可以自行變更密碼。容量與保留天數留空代表不限制，之後也能隨時用「設定」調整。</p>
       <div class="form-row">
         <input id="new-user-username" placeholder="帳號" autocomplete="off" />
         <input id="new-user-password" type="password" placeholder="起始密碼（至少 6 碼）" autocomplete="new-password" />
+      </div>
+      <div class="form-row" style="margin-top:10px">
+        <input id="new-user-quota" class="narrow" type="number" min="0" step="0.5" placeholder="容量上限 GB" />
+        <input id="new-user-retention" class="narrow" type="number" min="0" step="1" placeholder="保留天數" />
         <button onclick="createUser()">新增使用者</button>
       </div>
       <div id="create-user-msg" class="msg"></div>
@@ -217,7 +224,7 @@
       <h3>全部帳號<span class="count" id="users-count"></span></h3>
       <table>
         <thead>
-          <tr><th>帳號</th><th>身分</th><th>編號</th><th></th></tr>
+          <tr><th>帳號</th><th>已用空間</th><th>自動刪除</th><th></th></tr>
         </thead>
         <tbody id="users-rows"></tbody>
       </table>
@@ -225,27 +232,48 @@
   </div>
 </div>
 
-<script>
-/* 未登入時顯示的佔位清單。
-   寫死在前端，不會向伺服器索取，因此不會洩漏任何真實檔名。 */
-const LOCKED_ROWS = [
-  '████████████.zip',
-  '██████.pdf',
-  '█████████.png',
-  '███████████.csv',
-  '████.txt',
-];
+<!-- 分享連結視窗 -->
+<div id="share-modal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>🔗 公開分享連結</h3>
+    <p class="hint">任何拿到這個連結的人都可以下載此檔案，連結將在 24 小時後自動失效。</p>
+    <input id="share-link-input" readonly />
+    <div id="share-expire-msg" class="msg"></div>
+    <div class="buttons">
+      <button onclick="copyShareLink()">複製連結</button>
+      <button class="secondary" onclick="closeShareModal()">關閉</button>
+    </div>
+  </div>
+</div>
 
-function renderLockedRows() {
-  const tbody = document.getElementById('locked-rows');
-  tbody.innerHTML = '';
-  LOCKED_ROWS.forEach((name) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML =
-      `<td class="name"><span class="lock">🔒</span>${name}</td>` +
-      `<td>████</td><td>————</td><td class="act">未授權</td>`;
-    tbody.appendChild(tr);
-  });
+<!-- 使用者設定視窗 -->
+<div id="settings-modal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>使用者設定：<span id="settings-username"></span></h3>
+
+    <label for="settings-quota">容量上限（GB）</label>
+    <input id="settings-quota" type="number" min="0" step="0.5" />
+    <p class="hint">填 0 代表不限制容量。使用者上傳超過上限時會被擋下來。</p>
+
+    <label for="settings-retention">檔案保留天數</label>
+    <input id="settings-retention" type="number" min="0" step="1" />
+    <p class="hint">填 0 代表永久保留。設定天數後，超過天數的檔案會在有人瀏覽清單或上傳時自動刪除。</p>
+
+    <div id="settings-msg" class="msg"></div>
+    <div class="buttons">
+      <button onclick="saveSettings()">儲存設定</button>
+      <button class="secondary" onclick="closeSettings()">取消</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function formatBytes(n) {
+  n = Number(n) || 0;
+  if (n >= 1024 ** 3) return (n / 1024 ** 3).toFixed(2) + ' GB';
+  if (n >= 1024 ** 2) return (n / 1024 ** 2).toFixed(1) + ' MB';
+  if (n >= 1024) return (n / 1024).toFixed(1) + ' KB';
+  return n + ' B';
 }
 
 function showView(which) {
@@ -384,9 +412,11 @@ function stopIdleTimer() {
 async function logout(message) {
   stopIdleTimer();
   await fetch('/api/logout', { method: 'POST' });
+  closeShareModal();
+  closeSettings();
   document.getElementById('login-username').value = '';
   document.getElementById('login-password').value = '';
-  showLocked(message, '');
+  showLocked(typeof message === 'string' ? message : '', '');
 }
 
 /* ---------------- 讀取清單 ---------------- */
@@ -413,7 +443,8 @@ async function loadFiles() {
   const data = await res.json();
   const tbody = document.getElementById('files-rows');
   tbody.innerHTML = '';
-  document.getElementById('files-count').textContent = `（${data.files.length}）`;
+  document.getElementById('files-count').textContent =
+    `（${data.files.length} 個，共 ${formatBytes(data.total)}）`;
 
   if (!data.files.length) return emptyRow(tbody, 4, '目前沒有任何檔案');
 
@@ -423,6 +454,10 @@ async function loadFiles() {
     const name = document.createElement('td');
     name.className = 'name';
     name.textContent = f.filename;
+    const size = document.createElement('span');
+    size.className = 'sub';
+    size.textContent = formatBytes(f.size_bytes);
+    name.appendChild(size);
 
     const owner = document.createElement('td');
     owner.className = 'dim';
@@ -434,6 +469,19 @@ async function loadFiles() {
 
     const act = document.createElement('td');
     act.className = 'act';
+
+    const dl = document.createElement('button');
+    dl.className = 'small';
+    dl.textContent = '下載';
+    dl.onclick = () => downloadFile(f.id, f.filename);
+    act.appendChild(dl);
+
+    const sh = document.createElement('button');
+    sh.className = 'outline small';
+    sh.textContent = '分享';
+    sh.onclick = () => shareFile(f.id);
+    act.appendChild(sh);
+
     const del = document.createElement('button');
     del.className = 'danger small';
     del.textContent = '刪除';
@@ -461,19 +509,34 @@ async function loadUsers() {
     const name = document.createElement('td');
     name.className = 'name';
     name.textContent = u.username;
-
-    const role = document.createElement('td');
     const badge = document.createElement('span');
-    badge.className = 'badge' + (u.is_admin ? ' admin' : '');
-    badge.textContent = u.is_admin ? '管理員' : '一般使用者';
-    role.appendChild(badge);
+    badge.className = 'sub';
+    const tag = document.createElement('span');
+    tag.className = 'badge' + (u.is_admin ? ' admin' : '');
+    tag.textContent = u.is_admin ? '管理員' : '一般使用者';
+    badge.appendChild(tag);
+    name.appendChild(badge);
 
-    const id = document.createElement('td');
-    id.className = 'dim';
-    id.textContent = '#' + u.id;
+    const usage = document.createElement('td');
+    usage.className = 'dim';
+    const over = u.quotaBytes > 0 && u.used > u.quotaBytes;
+    usage.innerHTML =
+      `<span class="${over ? 'over' : ''}">${formatBytes(u.used)}` +
+      `${u.quotaBytes > 0 ? ' / ' + formatBytes(u.quotaBytes) : ' / 不限制'}</span>` +
+      `<span class="sub">${u.fileCount} 個檔案</span>`;
+
+    const retention = document.createElement('td');
+    retention.className = 'dim';
+    retention.textContent = u.retentionDays > 0 ? `${u.retentionDays} 天後` : '不自動刪除';
 
     const act = document.createElement('td');
     act.className = 'act';
+
+    const cfg = document.createElement('button');
+    cfg.className = 'small';
+    cfg.textContent = '設定';
+    cfg.onclick = () => openSettings(u);
+    act.appendChild(cfg);
 
     const reset = document.createElement('button');
     reset.className = 'secondary small';
@@ -487,22 +550,60 @@ async function loadUsers() {
     del.onclick = () => deleteUser(u.id, u.username);
     act.appendChild(del);
 
-    tr.append(name, role, id, act);
+    tr.append(name, usage, retention, act);
     tbody.appendChild(tr);
   });
 }
 
+/* ---------------- 使用者設定（容量 / 保留天數） ---------------- */
+
+let settingsUserId = null;
+
+function openSettings(u) {
+  settingsUserId = u.id;
+  document.getElementById('settings-username').textContent = u.username;
+  document.getElementById('settings-quota').value = u.quotaBytes ? (u.quotaBytes / 1024 ** 3) : 0;
+  document.getElementById('settings-retention').value = u.retentionDays || 0;
+  say('settings-msg', '');
+  document.getElementById('settings-modal').classList.add('show');
+}
+
+function closeSettings() {
+  document.getElementById('settings-modal').classList.remove('show');
+  settingsUserId = null;
+}
+
+async function saveSettings() {
+  if (!settingsUserId) return;
+
+  const quotaGb = Number(document.getElementById('settings-quota').value);
+  const retentionDays = Number(document.getElementById('settings-retention').value);
+  say('settings-msg', '');
+
+  const res = await fetch('/api/admin/update-user', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: settingsUserId, quotaGb, retentionDays })
+  });
+  if (sessionExpired(res)) return;
+  const data = await res.json();
+
+  if (!res.ok) return say('settings-msg', data.error || '儲存失敗', 'error');
+
+  closeSettings();
+  loadUsers();
+  loadFiles();
+}
+
 /* ---------------- 建立帳號 ---------------- */
 
-async function createAccount(endpoint, userInputId, passInputId, msgId, okText) {
-  const username = document.getElementById(userInputId).value.trim();
-  const password = document.getElementById(passInputId).value;
+async function createAccount(endpoint, payload, msgId, okText, extraInputIds) {
   say(msgId, '');
 
   const res = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password })
+    body: JSON.stringify(payload)
   });
   if (sessionExpired(res)) return;
   const data = await res.json();
@@ -510,22 +611,105 @@ async function createAccount(endpoint, userInputId, passInputId, msgId, okText) 
   if (!res.ok) return say(msgId, data.error || '建立失敗', 'error');
 
   say(msgId, okText, 'ok');
-  document.getElementById(userInputId).value = '';
-  document.getElementById(passInputId).value = '';
+  extraInputIds.forEach((id) => { document.getElementById(id).value = ''; });
   loadUsers();
 }
 
 function createUser() {
-  createAccount('/api/admin/create-user', 'new-user-username', 'new-user-password',
-    'create-user-msg', '使用者帳號已建立');
+  const payload = {
+    username: document.getElementById('new-user-username').value.trim(),
+    password: document.getElementById('new-user-password').value,
+    quotaGb: Number(document.getElementById('new-user-quota').value) || 0,
+    retentionDays: Number(document.getElementById('new-user-retention').value) || 0,
+  };
+  createAccount('/api/admin/create-user', payload, 'create-user-msg', '使用者帳號已建立',
+    ['new-user-username', 'new-user-password', 'new-user-quota', 'new-user-retention']);
 }
 
 function createAdmin() {
-  createAccount('/api/admin/create-admin', 'new-admin-username', 'new-admin-password',
-    'create-admin-msg', '管理員帳號已建立');
+  const payload = {
+    username: document.getElementById('new-admin-username').value.trim(),
+    password: document.getElementById('new-admin-password').value,
+  };
+  createAccount('/api/admin/create-admin', payload, 'create-admin-msg', '管理員帳號已建立',
+    ['new-admin-username', 'new-admin-password']);
 }
 
-/* ---------------- 帳號 / 檔案操作 ---------------- */
+/* ---------------- 檔案操作（下載 / 分享 / 刪除） ---------------- */
+
+async function downloadFile(id, filename) {
+  const res = await fetch(`/api/admin/download?id=${id}`);
+  if (sessionExpired(res)) return;
+  if (!res.ok) return alert('下載失敗');
+  const data = await res.json();
+
+  const link = document.createElement('a');
+  link.href = `data:application/octet-stream;base64,${data.contentBase64}`;
+  link.download = data.filename || filename;
+  link.click();
+}
+
+async function shareFile(id) {
+  const res = await fetch('/api/admin/share', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id })
+  });
+  if (sessionExpired(res)) return;
+  const data = await res.json();
+
+  if (!res.ok) return alert(data.error || '產生分享連結失敗');
+
+  const input = document.getElementById('share-link-input');
+  input.value = data.url;
+
+  const expireMsg = document.getElementById('share-expire-msg');
+  expireMsg.textContent = `此連結將於 ${new Date(data.expiresAt).toLocaleString()} 失效`;
+  expireMsg.className = 'msg';
+
+  document.getElementById('share-modal').classList.add('show');
+  input.select();
+}
+
+function closeShareModal() {
+  document.getElementById('share-modal').classList.remove('show');
+}
+
+function copyShareLink() {
+  const input = document.getElementById('share-link-input');
+  input.select();
+
+  const showCopied = () => {
+    const msg = document.getElementById('share-expire-msg');
+    const base = msg.textContent.replace(/^已複製到剪貼簿！\s*/, '');
+    msg.textContent = '已複製到剪貼簿！' + base;
+  };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(input.value).then(showCopied).catch(() => {
+      document.execCommand('copy');
+      showCopied();
+    });
+  } else {
+    document.execCommand('copy');
+    showCopied();
+  }
+}
+
+async function deleteFile(id, filename) {
+  if (!confirm(`要刪除「${filename}」嗎？`)) return;
+
+  const res = await fetch('/api/admin/delete-file', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id })
+  });
+  if (sessionExpired(res)) return;
+  loadFiles();
+  loadUsers();
+}
+
+/* ---------------- 帳號操作 ---------------- */
 
 async function resetPassword(id, username) {
   if (!confirm(`要重置「${username}」的密碼嗎？系統會產生一組新密碼。`)) return;
@@ -560,30 +744,18 @@ async function deleteUser(id, username) {
   loadFiles();
 }
 
-async function deleteFile(id, filename) {
-  if (!confirm(`要刪除「${filename}」嗎？`)) return;
-
-  const res = await fetch('/api/admin/delete-file', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id })
-  });
-  if (sessionExpired(res)) return;
-  loadFiles();
-}
-
 /* ---------------- 啟動 ---------------- */
 
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { closeShareModal(); closeSettings(); return; }
   if (e.key !== 'Enter') return;
   const id = document.activeElement && document.activeElement.id;
   if (id === 'login-username' || id === 'login-password') login();
   if (id === 'setup-username' || id === 'setup-password') runSetup();
+  if (id === 'settings-quota' || id === 'settings-retention') saveSettings();
 });
 
 (async () => {
-  renderLockedRows();
-
   try {
     const check = await fetch('/api/admin/users');
     if (check.ok) {
