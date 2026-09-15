@@ -63,6 +63,19 @@
   li button { width: auto; padding: 4px 10px; font-size: 12px; margin-left: 6px; }
   li .filename { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
   li .actions { display: flex; flex-shrink: 0; }
+  li .meta { display: block; color: #9ca3af; font-size: 12px; margin-top: 2px; }
+  .quota { margin: -4px 0 14px; }
+  .quota .bar {
+    height: 6px;
+    border-radius: 999px;
+    background: #0f1115;
+    border: 1px solid #2a2e38;
+    overflow: hidden;
+  }
+  .quota .fill { height: 100%; background: #3b82f6; width: 0; transition: width .3s; }
+  .quota .fill.warn { background: #f59e0b; }
+  .quota .fill.full { background: #dc2626; }
+  .quota .label { display: flex; justify-content: space-between; font-size: 12px; color: #9ca3af; margin-bottom: 6px; }
   .empty { color: #9ca3af; font-size: 13px; padding: 8px 0; }
   button.danger { background: #dc2626; }
   button.outline { background: transparent; border: 1px solid #3b82f6; }
@@ -124,6 +137,10 @@
 
   <div class="card">
     <h3>我的檔案</h3>
+    <div class="quota" id="quota-box" hidden>
+      <div class="label"><span id="quota-text"></span><span id="retention-text"></span></div>
+      <div class="bar"><div class="fill" id="quota-fill"></div></div>
+    </div>
     <ul id="file-list"></ul>
   </div>
 
@@ -323,6 +340,36 @@ async function uploadFile() {
   reader.readAsDataURL(file);
 }
 
+function formatBytes(n) {
+  n = Number(n) || 0;
+  if (n >= 1024 ** 3) return (n / 1024 ** 3).toFixed(2) + ' GB';
+  if (n >= 1024 ** 2) return (n / 1024 ** 2).toFixed(1) + ' MB';
+  if (n >= 1024) return (n / 1024).toFixed(1) + ' KB';
+  return n + ' B';
+}
+
+function renderQuota(used, quota, retentionDays) {
+  const box = document.getElementById('quota-box');
+  const text = document.getElementById('quota-text');
+  const fill = document.getElementById('quota-fill');
+  const retention = document.getElementById('retention-text');
+
+  box.hidden = false;
+  retention.textContent = retentionDays > 0 ? `上傳滿 ${retentionDays} 天自動刪除` : '不會自動刪除';
+
+  if (!quota) {
+    text.textContent = `已使用 ${formatBytes(used)}（未設容量上限）`;
+    fill.style.width = '0';
+    fill.className = 'fill';
+    return;
+  }
+
+  const pct = Math.min(100, (used / quota) * 100);
+  text.textContent = `已使用 ${formatBytes(used)} / ${formatBytes(quota)}`;
+  fill.style.width = pct + '%';
+  fill.className = 'fill' + (pct >= 95 ? ' full' : pct >= 80 ? ' warn' : '');
+}
+
 async function loadFiles() {
   const res = await fetch('/api/list');
   if (!res.ok) {
@@ -330,6 +377,8 @@ async function loadFiles() {
     return;
   }
   const data = await res.json();
+  renderQuota(data.used, data.quota, data.retentionDays);
+
   const list = document.getElementById('file-list');
   list.innerHTML = '';
 
@@ -347,6 +396,12 @@ async function loadFiles() {
     const nameSpan = document.createElement('span');
     nameSpan.className = 'filename';
     nameSpan.textContent = f.filename;
+
+    const meta = document.createElement('span');
+    meta.className = 'meta';
+    meta.textContent = formatBytes(f.size_bytes) + (f.created_at ? ' · ' + f.created_at : '');
+    nameSpan.appendChild(meta);
+
     li.appendChild(nameSpan);
 
     const actions = document.createElement('div');

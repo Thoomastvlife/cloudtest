@@ -5,6 +5,7 @@
 // 密碼由管理員自行指定；使用者登入後可以在首頁自行變更密碼
 
 import { hashPassword } from "../../_lib/auth.js";
+import { GB } from "../../_lib/storage.js";
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -14,7 +15,7 @@ function json(body, status = 200) {
 }
 
 export async function onRequestPost({ request, env }) {
-  const { username, password } = await request.json();
+  const { username, password, quotaGb, retentionDays } = await request.json();
 
   if (!username || !password || password.length < 6) {
     return json({ error: "帳號不可為空，密碼至少 6 碼" }, 400);
@@ -28,10 +29,20 @@ export async function onRequestPost({ request, env }) {
     return json({ error: "帳號已存在" }, 409);
   }
 
+  const gb = Number(quotaGb) || 0;
+  const days = Number(retentionDays) || 0;
+
+  if (gb < 0 || days < 0) {
+    return json({ error: "容量上限與保留天數不可為負數" }, 400);
+  }
+
   const passwordHash = await hashPassword(password);
 
-  await env.DB.prepare("INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, 0)")
-    .bind(username, passwordHash)
+  await env.DB.prepare(
+    `INSERT INTO users (username, password_hash, is_admin, quota_bytes, retention_days)
+     VALUES (?, ?, 0, ?, ?)`
+  )
+    .bind(username, passwordHash, Math.round(gb * GB), Math.round(days))
     .run();
 
   return json({ ok: true, message: "使用者帳號建立成功" });
