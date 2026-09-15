@@ -3,406 +3,249 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>HFS ~ 檔案伺服器管理</title>
+<title>管理員後台</title>
 <style>
-  /* ---------------------------------------------------------------
-     HFS (rejetto HTTP File Server) 風格 — 深色版
-     重點：視窗外框凹凸邊、等寬字目錄表格、底部狀態列
-  --------------------------------------------------------------- */
-  :root {
-    --bg:        #0d0d0d;
-    --window:    #1b1b1b;
-    --panel:     #212121;
-    --row-alt:   #191919;
-    --edge-lo:   #000000;
-    --edge-hi:   #454545;
-    --line:      #2f2f2f;
-    --text:      #d6d6d6;
-    --dim:       #8a8a8a;
-    --link:      #7fb8ff;
-    --amber:     #d8a443;
-    --green:     #6fc46f;
-    --red:       #cc5b5b;
-  }
-
   * { box-sizing: border-box; }
-
   body {
-    margin: 0;
-    padding: 18px 12px 40px;
-    background: var(--bg);
-    background-image: repeating-linear-gradient(
-      0deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 3px
-    );
-    color: var(--text);
-    font: 13px/1.5 Tahoma, Verdana, "Microsoft JhengHei", sans-serif;
+    font-family: -apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif;
+    background: #0f1115;
+    color: #e6e6e6;
+    max-width: 720px;
+    margin: 40px auto;
+    padding: 0 16px;
   }
+  h1 { font-size: 22px; margin-bottom: 8px; }
+  .subtitle { color: #9ca3af; font-size: 13px; margin: 0 0 24px; }
 
-  .window {
-    max-width: 860px;
-    margin: 0 auto;
-    background: var(--window);
-    border: 1px solid var(--edge-lo);
-    box-shadow: inset 1px 1px 0 var(--edge-hi), 0 0 0 1px #000, 0 6px 22px rgba(0,0,0,0.6);
+  .card {
+    background: #1a1d24;
+    border: 1px solid #2a2e38;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
   }
+  .card h3 { margin: 0 0 14px; font-size: 15px; }
+  .card h3 .count { color: #9ca3af; font-weight: normal; font-size: 13px; margin-left: 6px; }
 
-  /* ---- 標題列 ---- */
-  .titlebar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 5px 9px;
-    background: linear-gradient(#343434, #1f1f1f);
-    border-bottom: 1px solid var(--edge-lo);
-    box-shadow: inset 0 1px 0 #4e4e4e;
+  input {
+    width: 100%;
+    padding: 10px;
+    margin: 6px 0 14px;
+    border-radius: 6px;
+    border: 1px solid #333;
+    background: #0f1115;
+    color: #eee;
+    font-family: inherit;
+    font-size: 14px;
   }
-  .titlebar .name { font-weight: bold; letter-spacing: 0.3px; }
-  .titlebar .name span { color: var(--amber); }
-  .titlebar .clock { font-family: Consolas, "Courier New", monospace; color: var(--dim); font-size: 12px; }
+  input::placeholder { color: #6b7280; }
+  input:focus-visible { outline: 2px solid #3b82f6; outline-offset: 1px; }
 
-  /* ---- 路徑列 ---- */
-  .addressbar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 9px;
-    background: var(--panel);
-    border-bottom: 1px solid var(--edge-lo);
-    box-shadow: inset 0 1px 0 #2e2e2e;
-    font-family: Consolas, "Courier New", monospace;
+  button {
+    padding: 10px 16px;
+    border-radius: 6px;
+    border: none;
+    background: #3b82f6;
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  button:hover { opacity: 0.9; }
+  button:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
+  button.secondary { background: #333; }
+  button.danger { background: #dc2626; }
+  button.outline { background: transparent; border: 1px solid #3b82f6; color: #bfdbfe; }
+  button.small { padding: 5px 11px; font-size: 12px; margin-left: 6px; }
+  button.block { width: 100%; }
+
+  .msg { font-size: 13px; margin-top: 8px; min-height: 18px; }
+  .msg.error { color: #f87171; }
+  .msg.ok { color: #4ade80; }
+  .hint { font-size: 12px; color: #9ca3af; margin: -4px 0 14px; }
+
+  /* 表單橫排（窄螢幕自動折行） */
+  .form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+  .form-row input { flex: 1 1 180px; width: auto; margin: 0 0 4px; }
+  .form-row button { flex: 0 0 auto; }
+
+  /* 表格 */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th {
+    text-align: left;
+    padding: 0 8px 8px;
+    border-bottom: 1px solid #2a2e38;
+    color: #9ca3af;
+    font-weight: normal;
     font-size: 12px;
   }
-  .addressbar .path {
-    flex: 1;
-    padding: 3px 7px;
-    background: #0e0e0e;
-    border: 1px solid var(--edge-lo);
-    box-shadow: inset 1px 1px 0 #262626;
-    color: var(--link);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .body { padding: 12px 12px 6px; }
-
-  /* ---- 目錄表格 ---- */
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: Consolas, "Courier New", monospace;
-    font-size: 12.5px;
-  }
-  thead th {
-    text-align: left;
-    padding: 4px 8px;
-    background: linear-gradient(#343434, #252525);
-    border: 1px solid var(--edge-lo);
-    box-shadow: inset 0 1px 0 #4a4a4a;
-    color: #cfcfcf;
-    font-weight: normal;
-    white-space: nowrap;
-  }
-  tbody td {
-    padding: 4px 8px;
-    border-bottom: 1px solid var(--line);
-    vertical-align: middle;
-  }
-  tbody tr:nth-child(even) { background: var(--row-alt); }
-  tbody tr:hover { background: #262a2e; }
+  td { padding: 10px 8px; border-bottom: 1px solid #2a2e38; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
   td.name { word-break: break-all; }
-  td.num { color: var(--dim); white-space: nowrap; }
+  td.dim { color: #9ca3af; white-space: nowrap; }
   td.act { text-align: right; white-space: nowrap; }
-  .empty-row td { color: var(--dim); padding: 14px 8px; text-align: center; }
+  .empty td { color: #9ca3af; font-size: 13px; text-align: center; padding: 18px 8px; }
 
-  .locked tbody tr:hover { background: transparent; }
-  .locked td { color: #6a6a6a; }
-  .locked .name { color: #7a7a7a; letter-spacing: 1px; }
-  .lockicon { color: var(--amber); margin-right: 6px; }
-
-  /* ---- 按鈕 ---- */
-  button {
-    font: 12px Tahoma, Verdana, "Microsoft JhengHei", sans-serif;
-    color: var(--text);
-    background: linear-gradient(#3a3a3a, #262626);
-    border: 1px solid var(--edge-lo);
-    box-shadow: inset 0 1px 0 #555;
-    padding: 4px 11px;
-    cursor: pointer;
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    background: #23272f;
+    color: #9ca3af;
   }
-  button:hover { background: linear-gradient(#454545, #2e2e2e); }
-  button:active { box-shadow: inset 1px 1px 2px #000; background: #1e1e1e; }
-  button:focus-visible { outline: 1px dotted var(--amber); outline-offset: 2px; }
-  button.go { color: #f0e6cf; box-shadow: inset 0 1px 0 #6a5528; background: linear-gradient(#5c4a26, #3b2f18); }
-  button.go:hover { background: linear-gradient(#6d5829, #47381c); }
-  button.warn { color: #f0cccc; }
-  button.warn:hover { color: #ffdcdc; background: linear-gradient(#4a2c2c, #2f1c1c); }
-  button.tiny { padding: 2px 8px; font-size: 11px; margin-left: 4px; }
+  .badge.admin { background: #1e3a5f; color: #93c5fd; }
 
-  /* ---- 輸入 ---- */
-  input {
-    font: 12.5px Consolas, "Courier New", monospace;
-    color: var(--text);
-    background: #0e0e0e;
-    border: 1px solid var(--edge-lo);
-    box-shadow: inset 1px 1px 0 #242424;
-    padding: 5px 7px;
-    width: 100%;
-  }
-  input:focus { outline: none; border-color: #5a4a22; background: #121110; }
-  input:focus-visible { outline: 1px dotted var(--amber); outline-offset: 1px; }
+  /* 未登入的鎖住清單 */
+  .locked td { color: #4b5563; }
+  .locked .name { letter-spacing: 1px; }
+  .locked .lock { color: #d8a443; margin-right: 8px; }
 
-  /* ---- 區塊標題 ---- */
-  .section {
-    margin: 0 0 14px;
-    border: 1px solid var(--edge-lo);
-    box-shadow: inset 1px 1px 0 #2b2b2b;
-    background: #181818;
-  }
-  .section > h2 {
-    margin: 0;
-    padding: 4px 9px;
-    font: bold 12px Tahoma, Verdana, "Microsoft JhengHei", sans-serif;
-    color: var(--amber);
-    background: linear-gradient(#2c2c2c, #202020);
-    border-bottom: 1px solid var(--edge-lo);
-  }
-  .section > .inner { padding: 10px 9px; }
+  /* 頂端狀態列 */
+  .top-line { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .top-line p { margin: 0; font-size: 14px; }
+  .top-line .idle { display: block; color: #9ca3af; font-size: 12px; margin-top: 4px; }
+  .top-line .idle.warn { color: #fbbf24; }
 
-  .field-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  .field-row input { flex: 1 1 160px; width: auto; }
-
-  .msg { font-size: 12px; min-height: 16px; margin-top: 7px; font-family: Consolas, "Courier New", monospace; }
-  .msg.error { color: var(--red); }
-  .msg.ok { color: var(--green); }
-  .note { color: var(--dim); font-size: 12px; margin: 0 0 9px; }
-
-  /* ---- 分頁 ---- */
-  .tabs { display: flex; gap: 3px; padding: 8px 12px 0; }
+  /* 分頁 */
+  .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
   .tab {
-    padding: 4px 14px;
-    background: linear-gradient(#262626, #1c1c1c);
-    border: 1px solid var(--edge-lo);
-    border-bottom: none;
-    color: var(--dim);
-    cursor: pointer;
-    font: 12px Tahoma, Verdana, "Microsoft JhengHei", sans-serif;
+    background: #1a1d24;
+    border: 1px solid #2a2e38;
+    color: #9ca3af;
+    font-weight: normal;
   }
-  .tab[aria-selected="true"] { background: #181818; color: var(--amber); box-shadow: inset 0 2px 0 var(--amber); }
-
-  /* ---- 登入面板 ---- */
-  .loginbar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-    padding: 10px 9px;
-    background: #181818;
-    border: 1px solid var(--edge-lo);
-    box-shadow: inset 1px 1px 0 #2b2b2b;
-  }
-  .loginbar label { color: var(--dim); font-size: 12px; }
-  .loginbar input { width: 150px; flex: 0 1 150px; }
-
-  /* ---- 狀態列 ---- */
-  .statusbar {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    flex-wrap: wrap;
-    padding: 4px 9px;
-    background: var(--panel);
-    border-top: 1px solid var(--edge-hi);
-    font-family: Consolas, "Courier New", monospace;
-    font-size: 11.5px;
-    color: var(--dim);
-  }
-  .statusbar .lock { color: var(--amber); }
-  .statusbar .live { color: var(--green); }
-
-  .footer {
-    max-width: 860px;
-    margin: 8px auto 0;
-    text-align: right;
-    font-family: Consolas, "Courier New", monospace;
-    font-size: 11px;
-    color: #4f4f4f;
-  }
+  .tab[aria-selected="true"] { background: #3b82f6; border-color: #3b82f6; color: #fff; font-weight: bold; }
 
   [hidden] { display: none !important; }
 
-  @media (max-width: 560px) {
-    thead th:nth-child(3), tbody td:nth-child(3) { display: none; }
-    .titlebar .clock { display: none; }
+  @media (max-width: 520px) {
+    th:nth-child(3), td:nth-child(3) { display: none; }
   }
 </style>
 </head>
 <body>
 
-<div class="window">
-  <div class="titlebar">
-    <div class="name">HFS ~ <span>檔案伺服器</span></div>
-    <div class="clock" id="server-clock">--:--:--</div>
+<h1>🛠️ 管理員後台</h1>
+<p class="subtitle" id="subtitle">需要管理員帳號才能瀏覽</p>
+
+<!-- ============ 未登入 ============ -->
+<div id="view-locked">
+  <div class="card">
+    <h3>🔒 檔案清單（需登入）</h3>
+    <table class="locked">
+      <thead>
+        <tr><th>名稱</th><th>擁有者</th><th>時間</th><th></th></tr>
+      </thead>
+      <tbody id="locked-rows"></tbody>
+    </table>
   </div>
 
-  <div class="addressbar">
-    <span>位置</span>
-    <div class="path" id="crumb">/</div>
-  </div>
-
-  <!-- ============ 未登入：鎖住的目錄列表 ============ -->
-  <div id="view-locked">
-    <div class="body">
-      <table class="locked">
-        <thead>
-          <tr><th>名稱</th><th>大小</th><th>時間</th><th>權限</th></tr>
-        </thead>
-        <tbody id="locked-rows"></tbody>
-      </table>
-    </div>
-
-    <div class="body" style="padding-top:0">
-      <div class="loginbar">
-        <label for="login-username">帳號</label>
-        <input id="login-username" autocomplete="username" />
-        <label for="login-password">密碼</label>
-        <input id="login-password" type="password" autocomplete="current-password" />
-        <button class="go" onclick="login()">登入</button>
-      </div>
-      <div id="login-msg" class="msg"></div>
-    </div>
-  </div>
-
-  <!-- ============ 初次安裝：建立第一組管理員 ============ -->
-  <div id="view-setup" hidden>
-    <div class="body">
-      <div class="section">
-        <h2>初次安裝 — 建立第一組管理員</h2>
-        <div class="inner">
-          <p class="note">資料庫目前沒有任何帳號。建立第一組管理員之後，這個畫面就會關閉，日後所有帳號一律由後台新增。</p>
-          <div class="field-row">
-            <input id="setup-username" placeholder="管理員帳號" autocomplete="username" />
-            <input id="setup-password" type="password" placeholder="密碼（至少 6 碼）" autocomplete="new-password" />
-            <button class="go" onclick="runSetup()">建立管理員</button>
-          </div>
-          <div id="setup-msg" class="msg"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============ 已登入：管理介面 ============ -->
-  <div id="view-admin" hidden>
-    <div class="tabs" role="tablist">
-      <button class="tab" id="tab-files" role="tab" aria-selected="true" onclick="switchTab('files')">檔案</button>
-      <button class="tab" id="tab-users" role="tab" aria-selected="false" onclick="switchTab('users')">使用者</button>
-    </div>
-
-    <div class="body">
-      <!-- 檔案分頁 -->
-      <div id="pane-files">
-        <div class="section">
-          <h2>全部檔案</h2>
-          <div class="inner" style="padding:0">
-            <table>
-              <thead>
-                <tr><th>名稱</th><th>擁有者</th><th>時間</th><th></th></tr>
-              </thead>
-              <tbody id="files-rows"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- 使用者分頁 -->
-      <div id="pane-users" hidden>
-        <div class="section">
-          <h2>新增一般使用者</h2>
-          <div class="inner">
-            <p class="note">先設一組起始密碼交給對方，使用者登入首頁後可以自行變更密碼。</p>
-            <div class="field-row">
-              <input id="new-user-username" placeholder="帳號" autocomplete="off" />
-              <input id="new-user-password" type="password" placeholder="起始密碼（至少 6 碼）" autocomplete="new-password" />
-              <button class="go" onclick="createUser()">新增使用者</button>
-            </div>
-            <div id="create-user-msg" class="msg"></div>
-          </div>
-        </div>
-
-        <div class="section">
-          <h2>新增管理員</h2>
-          <div class="inner">
-            <div class="field-row">
-              <input id="new-admin-username" placeholder="帳號" autocomplete="off" />
-              <input id="new-admin-password" type="password" placeholder="密碼（至少 6 碼）" autocomplete="new-password" />
-              <button onclick="createAdmin()">新增管理員</button>
-            </div>
-            <div id="create-admin-msg" class="msg"></div>
-          </div>
-        </div>
-
-        <div class="section">
-          <h2>全部帳號</h2>
-          <div class="inner" style="padding:0">
-            <table>
-              <thead>
-                <tr><th>帳號</th><th>身分</th><th>編號</th><th></th></tr>
-              </thead>
-              <tbody id="users-rows"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="statusbar">
-    <div id="status-left"><span class="lock">🔒</span> 需要登入才能瀏覽這個目錄</div>
-    <div id="status-right">未連線</div>
+  <div class="card">
+    <h3>管理員登入</h3>
+    <input id="login-username" placeholder="帳號" autocomplete="username" />
+    <input id="login-password" type="password" placeholder="密碼" autocomplete="current-password" />
+    <button class="block" onclick="login()">登入</button>
+    <div id="login-msg" class="msg"></div>
   </div>
 </div>
 
-<div class="footer">hfs ~ http file server</div>
+<!-- ============ 初次安裝 ============ -->
+<div id="view-setup" hidden>
+  <div class="card">
+    <h3>初次安裝 — 建立第一組管理員</h3>
+    <p class="hint">資料庫目前沒有任何帳號。建立第一組管理員之後，這個畫面就會關閉，日後所有帳號一律由後台新增。</p>
+    <input id="setup-username" placeholder="管理員帳號" autocomplete="username" />
+    <input id="setup-password" type="password" placeholder="密碼（至少 6 碼）" autocomplete="new-password" />
+    <button class="block" onclick="runSetup()">建立管理員</button>
+    <div id="setup-msg" class="msg"></div>
+  </div>
+</div>
+
+<!-- ============ 已登入 ============ -->
+<div id="view-admin" hidden>
+  <div class="card top-line">
+    <p>已登入：<strong id="current-user"></strong>
+      <span class="idle" id="idle-note">閒置 <span id="idle-countdown">300</span> 秒後自動登出</span>
+    </p>
+    <button class="secondary small" onclick="logout()">登出</button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab" id="tab-files" role="tab" aria-selected="true" onclick="switchTab('files')">檔案</button>
+    <button class="tab" id="tab-users" role="tab" aria-selected="false" onclick="switchTab('users')">使用者</button>
+  </div>
+
+  <!-- 檔案分頁 -->
+  <div id="pane-files">
+    <div class="card">
+      <h3>全部檔案<span class="count" id="files-count"></span></h3>
+      <table>
+        <thead>
+          <tr><th>檔名</th><th>擁有者</th><th>上傳時間</th><th></th></tr>
+        </thead>
+        <tbody id="files-rows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 使用者分頁 -->
+  <div id="pane-users" hidden>
+    <div class="card">
+      <h3>新增一般使用者</h3>
+      <p class="hint">先設一組起始密碼交給對方，使用者登入首頁後可以自行變更密碼。</p>
+      <div class="form-row">
+        <input id="new-user-username" placeholder="帳號" autocomplete="off" />
+        <input id="new-user-password" type="password" placeholder="起始密碼（至少 6 碼）" autocomplete="new-password" />
+        <button onclick="createUser()">新增使用者</button>
+      </div>
+      <div id="create-user-msg" class="msg"></div>
+    </div>
+
+    <div class="card">
+      <h3>新增管理員</h3>
+      <div class="form-row">
+        <input id="new-admin-username" placeholder="帳號" autocomplete="off" />
+        <input id="new-admin-password" type="password" placeholder="密碼（至少 6 碼）" autocomplete="new-password" />
+        <button class="outline" onclick="createAdmin()">新增管理員</button>
+      </div>
+      <div id="create-admin-msg" class="msg"></div>
+    </div>
+
+    <div class="card">
+      <h3>全部帳號<span class="count" id="users-count"></span></h3>
+      <table>
+        <thead>
+          <tr><th>帳號</th><th>身分</th><th>編號</th><th></th></tr>
+        </thead>
+        <tbody id="users-rows"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 <script>
-/* ============================================================
-   未登入時顯示的「鎖住」清單
-   這些只是佔位資料，不會、也不可能洩漏真實檔名 —
-   真實清單要登入後才會向伺服器索取。
-   ============================================================ */
+/* 未登入時顯示的佔位清單。
+   寫死在前端，不會向伺服器索取，因此不會洩漏任何真實檔名。 */
 const LOCKED_ROWS = [
-  { name: '████████████.zip', size: '— — —', time: '——-——-—— ——:——' },
-  { name: '██████.pdf',       size: '— — —', time: '——-——-—— ——:——' },
-  { name: '█████████.png',    size: '— — —', time: '——-——-—— ——:——' },
-  { name: '███████████.csv',  size: '— — —', time: '——-——-—— ——:——' },
-  { name: '████.txt',         size: '— — —', time: '——-——-—— ——:——' },
-  { name: '█████████████.mp4',size: '— — —', time: '——-——-—— ——:——' },
-  { name: '███████.docx',     size: '— — —', time: '——-——-—— ——:——' },
+  '████████████.zip',
+  '██████.pdf',
+  '█████████.png',
+  '███████████.csv',
+  '████.txt',
 ];
 
 function renderLockedRows() {
   const tbody = document.getElementById('locked-rows');
   tbody.innerHTML = '';
-  LOCKED_ROWS.forEach((r) => {
+  LOCKED_ROWS.forEach((name) => {
     const tr = document.createElement('tr');
     tr.innerHTML =
-      `<td class="name"><span class="lockicon">🔒</span>${r.name}</td>` +
-      `<td class="num">${r.size}</td>` +
-      `<td class="num">${r.time}</td>` +
-      `<td class="num">拒絕存取</td>`;
+      `<td class="name"><span class="lock">🔒</span>${name}</td>` +
+      `<td>████</td><td>————</td><td class="act">未授權</td>`;
     tbody.appendChild(tr);
   });
-}
-
-function tickClock() {
-  const el = document.getElementById('server-clock');
-  if (el) el.textContent = new Date().toLocaleTimeString('zh-TW', { hour12: false });
-}
-
-function setStatus(left, right) {
-  document.getElementById('status-left').innerHTML = left;
-  document.getElementById('status-right').textContent = right;
 }
 
 function showView(which) {
@@ -416,7 +259,6 @@ function switchTab(which) {
   document.getElementById('pane-users').hidden = which !== 'users';
   document.getElementById('tab-files').setAttribute('aria-selected', which === 'files');
   document.getElementById('tab-users').setAttribute('aria-selected', which === 'users');
-  document.getElementById('crumb').textContent = which === 'files' ? '/ 管理 / 檔案' : '/ 管理 / 使用者';
 }
 
 function say(id, text, kind) {
@@ -431,13 +273,11 @@ async function checkSetup() {
   const res = await fetch('/api/setup');
   if (!res.ok) return false;
   const data = await res.json();
-  if (data.needsSetup) {
-    showView('setup');
-    document.getElementById('crumb').textContent = '/ 初次安裝';
-    setStatus('<span class="lock">⚙</span> 尚未初始化', '等待建立管理員');
-    return true;
-  }
-  return false;
+  if (!data.needsSetup) return false;
+
+  showView('setup');
+  document.getElementById('subtitle').textContent = '尚未初始化，請先建立管理員帳號';
+  return true;
 }
 
 async function runSetup() {
@@ -461,11 +301,10 @@ async function runSetup() {
 
 /* ---------------- 登入 / 登出 ---------------- */
 
-function showLocked(message) {
+function showLocked(message, kind) {
   showView('locked');
-  document.getElementById('crumb').textContent = '/';
-  setStatus('<span class="lock">🔒</span> 需要登入才能瀏覽這個目錄', '未連線');
-  say('login-msg', message || '', message ? 'ok' : '');
+  document.getElementById('subtitle').textContent = '需要管理員帳號才能瀏覽';
+  say('login-msg', message || '', message ? (kind || 'ok') : '');
 }
 
 async function login() {
@@ -497,12 +336,8 @@ async function login() {
 function enterAdmin(username) {
   showView('admin');
   switchTab('files');
-  setStatus(
-    `<span class="live">●</span> 已登入：${username}` +
-    ` &nbsp;|&nbsp; 閒置 <span id="idle-countdown">300</span> 秒後自動登出` +
-    ` &nbsp;|&nbsp; <button class="tiny" onclick="logout()">登出</button>`,
-    '連線中'
-  );
+  document.getElementById('subtitle').textContent = '管理所有帳號與檔案';
+  document.getElementById('current-user').textContent = username;
   loadUsers();
   loadFiles();
   startIdleTimer();
@@ -518,8 +353,9 @@ let idleCheckInterval = null;
 function updateIdleCountdown() {
   const el = document.getElementById('idle-countdown');
   if (!el) return;
-  const remaining = IDLE_LIMIT_MS - (Date.now() - lastActivityAt);
-  el.textContent = Math.max(0, Math.ceil(remaining / 1000));
+  const remaining = Math.max(0, Math.ceil((IDLE_LIMIT_MS - (Date.now() - lastActivityAt)) / 1000));
+  el.textContent = remaining;
+  document.getElementById('idle-note').classList.toggle('warn', remaining <= 60);
 }
 
 function markActivity() {
@@ -550,8 +386,7 @@ async function logout(message) {
   await fetch('/api/logout', { method: 'POST' });
   document.getElementById('login-username').value = '';
   document.getElementById('login-password').value = '';
-  showLocked();
-  if (message) say('login-msg', message, '');
+  showLocked(message, '');
 }
 
 /* ---------------- 讀取清單 ---------------- */
@@ -559,8 +394,7 @@ async function logout(message) {
 function sessionExpired(res) {
   if (res.status === 401 || res.status === 403) {
     stopIdleTimer();
-    showLocked();
-    say('login-msg', '登入已過期，請重新登入', 'error');
+    showLocked('登入已過期，請重新登入', 'error');
     return true;
   }
   return false;
@@ -568,7 +402,7 @@ function sessionExpired(res) {
 
 function emptyRow(tbody, colspan, text) {
   const tr = document.createElement('tr');
-  tr.className = 'empty-row';
+  tr.className = 'empty';
   tr.innerHTML = `<td colspan="${colspan}">${text}</td>`;
   tbody.appendChild(tr);
 }
@@ -579,28 +413,29 @@ async function loadFiles() {
   const data = await res.json();
   const tbody = document.getElementById('files-rows');
   tbody.innerHTML = '';
+  document.getElementById('files-count').textContent = `（${data.files.length}）`;
 
-  if (!data.files.length) return emptyRow(tbody, 4, '這個目錄是空的');
+  if (!data.files.length) return emptyRow(tbody, 4, '目前沒有任何檔案');
 
   data.files.forEach((f) => {
     const tr = document.createElement('tr');
 
     const name = document.createElement('td');
     name.className = 'name';
-    name.textContent = '📄 ' + f.filename;
+    name.textContent = f.filename;
 
     const owner = document.createElement('td');
-    owner.className = 'num';
+    owner.className = 'dim';
     owner.textContent = f.owner;
 
     const time = document.createElement('td');
-    time.className = 'num';
+    time.className = 'dim';
     time.textContent = f.created_at || '—';
 
     const act = document.createElement('td');
     act.className = 'act';
     const del = document.createElement('button');
-    del.className = 'tiny warn';
+    del.className = 'danger small';
     del.textContent = '刪除';
     del.onclick = () => deleteFile(f.id, f.filename);
     act.appendChild(del);
@@ -616,6 +451,7 @@ async function loadUsers() {
   const data = await res.json();
   const tbody = document.getElementById('users-rows');
   tbody.innerHTML = '';
+  document.getElementById('users-count').textContent = `（${data.users.length}）`;
 
   if (!data.users.length) return emptyRow(tbody, 4, '沒有任何帳號');
 
@@ -624,27 +460,29 @@ async function loadUsers() {
 
     const name = document.createElement('td');
     name.className = 'name';
-    name.textContent = (u.is_admin ? '★ ' : '👤 ') + u.username;
+    name.textContent = u.username;
 
     const role = document.createElement('td');
-    role.className = 'num';
-    role.textContent = u.is_admin ? '管理員' : '一般使用者';
+    const badge = document.createElement('span');
+    badge.className = 'badge' + (u.is_admin ? ' admin' : '');
+    badge.textContent = u.is_admin ? '管理員' : '一般使用者';
+    role.appendChild(badge);
 
     const id = document.createElement('td');
-    id.className = 'num';
+    id.className = 'dim';
     id.textContent = '#' + u.id;
 
     const act = document.createElement('td');
     act.className = 'act';
 
     const reset = document.createElement('button');
-    reset.className = 'tiny';
+    reset.className = 'secondary small';
     reset.textContent = '重置密碼';
     reset.onclick = () => resetPassword(u.id, u.username);
     act.appendChild(reset);
 
     const del = document.createElement('button');
-    del.className = 'tiny warn';
+    del.className = 'danger small';
     del.textContent = '刪除';
     del.onclick = () => deleteUser(u.id, u.username);
     act.appendChild(del);
@@ -745,11 +583,8 @@ document.addEventListener('keydown', (e) => {
 
 (async () => {
   renderLockedRows();
-  tickClock();
-  setInterval(tickClock, 1000);
 
   try {
-    // 已經有有效的管理員 session 就直接進後台
     const check = await fetch('/api/admin/users');
     if (check.ok) {
       const me = await fetch('/api/me');
@@ -760,8 +595,7 @@ document.addEventListener('keydown', (e) => {
     if (await checkSetup()) return;
     showLocked();
   } catch {
-    showLocked();
-    say('login-msg', '無法連線到伺服器，請重新整理頁面', 'error');
+    showLocked('無法連線到伺服器，請重新整理頁面', 'error');
   }
 })();
 </script>

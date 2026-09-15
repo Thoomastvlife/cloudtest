@@ -67,8 +67,10 @@
   button.danger { background: #dc2626; }
   button.outline { background: transparent; border: 1px solid #3b82f6; }
   #app-section { display: none; }
-  .top-line { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .top-line { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
   .top-line p { margin: 0; }
+  .idle { display: block; color: #9ca3af; font-size: 12px; margin-top: 4px; }
+  .idle.warn { color: #fbbf24; }
   .top-line button { width: auto; padding: 4px 12px; margin: 0; }
   .modal-overlay {
     display: none;
@@ -107,7 +109,9 @@
 
 <div id="app-section">
   <div class="card top-line">
-    <p>已登入：<strong id="current-user"></strong></p>
+    <p>已登入：<strong id="current-user"></strong>
+      <span class="idle" id="idle-note">閒置 <span id="idle-countdown">300</span> 秒後自動登出</span>
+    </p>
     <button class="secondary" onclick="logout()">登出</button>
   </div>
 
@@ -146,6 +150,7 @@
 
 <script>
 function showLogin(message) {
+  stopIdleTimer();
   document.getElementById('app-section').style.display = 'none';
   document.getElementById('auth-section').style.display = 'block';
   const msg = document.getElementById('login-msg');
@@ -158,6 +163,47 @@ function showApp(username) {
   document.getElementById('app-section').style.display = 'block';
   document.getElementById('current-user').textContent = username;
   loadFiles();
+  startIdleTimer();
+}
+
+/* ---------------- 300 秒閒置自動登出 ----------------
+   5 分鐘內沒有任何滑鼠、鍵盤或觸控操作就自動登出。
+   剩下 60 秒時倒數會轉成黃色提醒。                     */
+
+const IDLE_LIMIT_MS = 300 * 1000;
+const IDLE_EVENTS = ['mousemove', 'keydown', 'click', 'touchstart', 'scroll'];
+let lastActivityAt = Date.now();
+let idleCheckInterval = null;
+
+function updateIdleCountdown() {
+  const el = document.getElementById('idle-countdown');
+  if (!el) return;
+  const remaining = Math.max(0, Math.ceil((IDLE_LIMIT_MS - (Date.now() - lastActivityAt)) / 1000));
+  el.textContent = remaining;
+  document.getElementById('idle-note').classList.toggle('warn', remaining <= 60);
+}
+
+function markActivity() {
+  lastActivityAt = Date.now();
+  updateIdleCountdown();
+}
+
+function startIdleTimer() {
+  markActivity();
+  IDLE_EVENTS.forEach((e) => document.addEventListener(e, markActivity));
+  if (idleCheckInterval) clearInterval(idleCheckInterval);
+  idleCheckInterval = setInterval(() => {
+    updateIdleCountdown();
+    if (Date.now() - lastActivityAt > IDLE_LIMIT_MS) {
+      logout('閒置超過 5 分鐘，已自動登出，請重新登入');
+    }
+  }, 1000);
+}
+
+function stopIdleTimer() {
+  if (idleCheckInterval) clearInterval(idleCheckInterval);
+  idleCheckInterval = null;
+  IDLE_EVENTS.forEach((e) => document.removeEventListener(e, markActivity));
 }
 
 async function login() {
@@ -182,11 +228,15 @@ async function login() {
   }
 }
 
-async function logout() {
+async function logout(message) {
   await fetch('/api/logout', { method: 'POST' });
+  closeShareModal();
   document.getElementById('login-username').value = '';
   document.getElementById('login-password').value = '';
-  showLogin();
+  document.getElementById('old-password').value = '';
+  document.getElementById('new-password').value = '';
+  document.getElementById('new-password2').value = '';
+  showLogin(typeof message === 'string' ? message : '');
 }
 
 async function changePassword() {
