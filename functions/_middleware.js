@@ -1,10 +1,20 @@
 // functions/_middleware.js
-// 保護 /api/upload、/api/download、/api/list、/api/logout 這幾條路由
+// 保護需要登入才能使用的路由（見下方 PROTECTED_PATHS）
 // 沒有有效登入 session 就直接擋下來，回傳 401
+// /api/setup 與 /api/public-download 刻意不在清單內，兩者本來就給未登入者使用
 
 import { verifySessionToken, getCookie, SESSION_COOKIE_NAME } from "./_lib/auth.js";
 
-const PROTECTED_PATHS = ["/api/upload", "/api/download", "/api/list", "/api/logout", "/api/delete", "/api/share"];
+const PROTECTED_PATHS = [
+  "/api/upload",
+  "/api/download",
+  "/api/list",
+  "/api/logout",
+  "/api/delete",
+  "/api/share",
+  "/api/me",
+  "/api/change-password",
+];
 const ADMIN_PATHS = ["/api/admin"];
 
 export async function onRequest(context) {

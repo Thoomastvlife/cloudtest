@@ -3,107 +3,475 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>管理員後台</title>
+<title>HFS ~ 檔案伺服器管理</title>
 <style>
+  /* ---------------------------------------------------------------
+     HFS (rejetto HTTP File Server) 風格 — 深色版
+     重點：視窗外框凹凸邊、等寬字目錄表格、底部狀態列
+  --------------------------------------------------------------- */
+  :root {
+    --bg:        #0d0d0d;
+    --window:    #1b1b1b;
+    --panel:     #212121;
+    --row-alt:   #191919;
+    --edge-lo:   #000000;
+    --edge-hi:   #454545;
+    --line:      #2f2f2f;
+    --text:      #d6d6d6;
+    --dim:       #8a8a8a;
+    --link:      #7fb8ff;
+    --amber:     #d8a443;
+    --green:     #6fc46f;
+    --red:       #cc5b5b;
+  }
+
   * { box-sizing: border-box; }
+
   body {
-    font-family: -apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif;
-    background: #0f1115;
-    color: #e6e6e6;
-    max-width: 720px;
-    margin: 40px auto;
-    padding: 0 16px;
+    margin: 0;
+    padding: 18px 12px 40px;
+    background: var(--bg);
+    background-image: repeating-linear-gradient(
+      0deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 3px
+    );
+    color: var(--text);
+    font: 13px/1.5 Tahoma, Verdana, "Microsoft JhengHei", sans-serif;
   }
-  h1 { font-size: 22px; margin-bottom: 24px; }
-  h3 { margin-top: 0; }
-  .card {
-    background: #1a1d24;
-    border: 1px solid #2a2e38;
-    border-radius: 10px;
-    padding: 20px;
-    margin-bottom: 20px;
+
+  .window {
+    max-width: 860px;
+    margin: 0 auto;
+    background: var(--window);
+    border: 1px solid var(--edge-lo);
+    box-shadow: inset 1px 1px 0 var(--edge-hi), 0 0 0 1px #000, 0 6px 22px rgba(0,0,0,0.6);
   }
-  input {
+
+  /* ---- 標題列 ---- */
+  .titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 5px 9px;
+    background: linear-gradient(#343434, #1f1f1f);
+    border-bottom: 1px solid var(--edge-lo);
+    box-shadow: inset 0 1px 0 #4e4e4e;
+  }
+  .titlebar .name { font-weight: bold; letter-spacing: 0.3px; }
+  .titlebar .name span { color: var(--amber); }
+  .titlebar .clock { font-family: Consolas, "Courier New", monospace; color: var(--dim); font-size: 12px; }
+
+  /* ---- 路徑列 ---- */
+  .addressbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 9px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--edge-lo);
+    box-shadow: inset 0 1px 0 #2e2e2e;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12px;
+  }
+  .addressbar .path {
+    flex: 1;
+    padding: 3px 7px;
+    background: #0e0e0e;
+    border: 1px solid var(--edge-lo);
+    box-shadow: inset 1px 1px 0 #262626;
+    color: var(--link);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .body { padding: 12px 12px 6px; }
+
+  /* ---- 目錄表格 ---- */
+  table {
     width: 100%;
-    padding: 10px;
-    margin: 6px 0 14px;
-    border-radius: 6px;
-    border: 1px solid #333;
-    background: #0f1115;
-    color: #eee;
+    border-collapse: collapse;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12.5px;
   }
+  thead th {
+    text-align: left;
+    padding: 4px 8px;
+    background: linear-gradient(#343434, #252525);
+    border: 1px solid var(--edge-lo);
+    box-shadow: inset 0 1px 0 #4a4a4a;
+    color: #cfcfcf;
+    font-weight: normal;
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+  tbody tr:nth-child(even) { background: var(--row-alt); }
+  tbody tr:hover { background: #262a2e; }
+  td.name { word-break: break-all; }
+  td.num { color: var(--dim); white-space: nowrap; }
+  td.act { text-align: right; white-space: nowrap; }
+  .empty-row td { color: var(--dim); padding: 14px 8px; text-align: center; }
+
+  .locked tbody tr:hover { background: transparent; }
+  .locked td { color: #6a6a6a; }
+  .locked .name { color: #7a7a7a; letter-spacing: 1px; }
+  .lockicon { color: var(--amber); margin-right: 6px; }
+
+  /* ---- 按鈕 ---- */
   button {
-    padding: 10px;
-    border-radius: 6px;
-    border: none;
-    background: #3b82f6;
-    color: white;
-    font-weight: bold;
+    font: 12px Tahoma, Verdana, "Microsoft JhengHei", sans-serif;
+    color: var(--text);
+    background: linear-gradient(#3a3a3a, #262626);
+    border: 1px solid var(--edge-lo);
+    box-shadow: inset 0 1px 0 #555;
+    padding: 4px 11px;
     cursor: pointer;
   }
-  button.danger { background: #dc2626; padding: 4px 10px; font-size: 12px; }
-  button.secondary { background: #333; }
-  button.small { padding: 4px 10px; font-size: 12px; margin-left: 6px; }
-  #login-box button { width: 100%; }
-  .msg { font-size: 13px; margin-top: 8px; min-height: 18px; }
-  .msg.error { color: #f87171; }
-  .msg.ok { color: #4ade80; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th, td { text-align: left; padding: 8px 4px; border-bottom: 1px solid #2a2e38; }
-  #app-section { display: none; }
-  .top-bar { display: flex; justify-content: space-between; align-items: center; }
-  .idle-note { font-size: 12px; color: #9ca3af; margin: 0; }
+  button:hover { background: linear-gradient(#454545, #2e2e2e); }
+  button:active { box-shadow: inset 1px 1px 2px #000; background: #1e1e1e; }
+  button:focus-visible { outline: 1px dotted var(--amber); outline-offset: 2px; }
+  button.go { color: #f0e6cf; box-shadow: inset 0 1px 0 #6a5528; background: linear-gradient(#5c4a26, #3b2f18); }
+  button.go:hover { background: linear-gradient(#6d5829, #47381c); }
+  button.warn { color: #f0cccc; }
+  button.warn:hover { color: #ffdcdc; background: linear-gradient(#4a2c2c, #2f1c1c); }
+  button.tiny { padding: 2px 8px; font-size: 11px; margin-left: 4px; }
+
+  /* ---- 輸入 ---- */
+  input {
+    font: 12.5px Consolas, "Courier New", monospace;
+    color: var(--text);
+    background: #0e0e0e;
+    border: 1px solid var(--edge-lo);
+    box-shadow: inset 1px 1px 0 #242424;
+    padding: 5px 7px;
+    width: 100%;
+  }
+  input:focus { outline: none; border-color: #5a4a22; background: #121110; }
+  input:focus-visible { outline: 1px dotted var(--amber); outline-offset: 1px; }
+
+  /* ---- 區塊標題 ---- */
+  .section {
+    margin: 0 0 14px;
+    border: 1px solid var(--edge-lo);
+    box-shadow: inset 1px 1px 0 #2b2b2b;
+    background: #181818;
+  }
+  .section > h2 {
+    margin: 0;
+    padding: 4px 9px;
+    font: bold 12px Tahoma, Verdana, "Microsoft JhengHei", sans-serif;
+    color: var(--amber);
+    background: linear-gradient(#2c2c2c, #202020);
+    border-bottom: 1px solid var(--edge-lo);
+  }
+  .section > .inner { padding: 10px 9px; }
+
+  .field-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .field-row input { flex: 1 1 160px; width: auto; }
+
+  .msg { font-size: 12px; min-height: 16px; margin-top: 7px; font-family: Consolas, "Courier New", monospace; }
+  .msg.error { color: var(--red); }
+  .msg.ok { color: var(--green); }
+  .note { color: var(--dim); font-size: 12px; margin: 0 0 9px; }
+
+  /* ---- 分頁 ---- */
+  .tabs { display: flex; gap: 3px; padding: 8px 12px 0; }
+  .tab {
+    padding: 4px 14px;
+    background: linear-gradient(#262626, #1c1c1c);
+    border: 1px solid var(--edge-lo);
+    border-bottom: none;
+    color: var(--dim);
+    cursor: pointer;
+    font: 12px Tahoma, Verdana, "Microsoft JhengHei", sans-serif;
+  }
+  .tab[aria-selected="true"] { background: #181818; color: var(--amber); box-shadow: inset 0 2px 0 var(--amber); }
+
+  /* ---- 登入面板 ---- */
+  .loginbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding: 10px 9px;
+    background: #181818;
+    border: 1px solid var(--edge-lo);
+    box-shadow: inset 1px 1px 0 #2b2b2b;
+  }
+  .loginbar label { color: var(--dim); font-size: 12px; }
+  .loginbar input { width: 150px; flex: 0 1 150px; }
+
+  /* ---- 狀態列 ---- */
+  .statusbar {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 4px 9px;
+    background: var(--panel);
+    border-top: 1px solid var(--edge-hi);
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 11.5px;
+    color: var(--dim);
+  }
+  .statusbar .lock { color: var(--amber); }
+  .statusbar .live { color: var(--green); }
+
+  .footer {
+    max-width: 860px;
+    margin: 8px auto 0;
+    text-align: right;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 11px;
+    color: #4f4f4f;
+  }
+
+  [hidden] { display: none !important; }
+
+  @media (max-width: 560px) {
+    thead th:nth-child(3), tbody td:nth-child(3) { display: none; }
+    .titlebar .clock { display: none; }
+  }
 </style>
 </head>
 <body>
 
-<h1>🛠️ 管理員後台</h1>
+<div class="window">
+  <div class="titlebar">
+    <div class="name">HFS ~ <span>檔案伺服器</span></div>
+    <div class="clock" id="server-clock">--:--:--</div>
+  </div>
 
-<div id="login-box" class="card">
-  <h3>管理員登入</h3>
-  <input id="login-username" placeholder="帳號" />
-  <input id="login-password" type="password" placeholder="密碼" />
-  <button onclick="login()">登入</button>
-  <div id="login-msg" class="msg"></div>
+  <div class="addressbar">
+    <span>位置</span>
+    <div class="path" id="crumb">/</div>
+  </div>
+
+  <!-- ============ 未登入：鎖住的目錄列表 ============ -->
+  <div id="view-locked">
+    <div class="body">
+      <table class="locked">
+        <thead>
+          <tr><th>名稱</th><th>大小</th><th>時間</th><th>權限</th></tr>
+        </thead>
+        <tbody id="locked-rows"></tbody>
+      </table>
+    </div>
+
+    <div class="body" style="padding-top:0">
+      <div class="loginbar">
+        <label for="login-username">帳號</label>
+        <input id="login-username" autocomplete="username" />
+        <label for="login-password">密碼</label>
+        <input id="login-password" type="password" autocomplete="current-password" />
+        <button class="go" onclick="login()">登入</button>
+      </div>
+      <div id="login-msg" class="msg"></div>
+    </div>
+  </div>
+
+  <!-- ============ 初次安裝：建立第一組管理員 ============ -->
+  <div id="view-setup" hidden>
+    <div class="body">
+      <div class="section">
+        <h2>初次安裝 — 建立第一組管理員</h2>
+        <div class="inner">
+          <p class="note">資料庫目前沒有任何帳號。建立第一組管理員之後，這個畫面就會關閉，日後所有帳號一律由後台新增。</p>
+          <div class="field-row">
+            <input id="setup-username" placeholder="管理員帳號" autocomplete="username" />
+            <input id="setup-password" type="password" placeholder="密碼（至少 6 碼）" autocomplete="new-password" />
+            <button class="go" onclick="runSetup()">建立管理員</button>
+          </div>
+          <div id="setup-msg" class="msg"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 已登入：管理介面 ============ -->
+  <div id="view-admin" hidden>
+    <div class="tabs" role="tablist">
+      <button class="tab" id="tab-files" role="tab" aria-selected="true" onclick="switchTab('files')">檔案</button>
+      <button class="tab" id="tab-users" role="tab" aria-selected="false" onclick="switchTab('users')">使用者</button>
+    </div>
+
+    <div class="body">
+      <!-- 檔案分頁 -->
+      <div id="pane-files">
+        <div class="section">
+          <h2>全部檔案</h2>
+          <div class="inner" style="padding:0">
+            <table>
+              <thead>
+                <tr><th>名稱</th><th>擁有者</th><th>時間</th><th></th></tr>
+              </thead>
+              <tbody id="files-rows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 使用者分頁 -->
+      <div id="pane-users" hidden>
+        <div class="section">
+          <h2>新增一般使用者</h2>
+          <div class="inner">
+            <p class="note">先設一組起始密碼交給對方，使用者登入首頁後可以自行變更密碼。</p>
+            <div class="field-row">
+              <input id="new-user-username" placeholder="帳號" autocomplete="off" />
+              <input id="new-user-password" type="password" placeholder="起始密碼（至少 6 碼）" autocomplete="new-password" />
+              <button class="go" onclick="createUser()">新增使用者</button>
+            </div>
+            <div id="create-user-msg" class="msg"></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>新增管理員</h2>
+          <div class="inner">
+            <div class="field-row">
+              <input id="new-admin-username" placeholder="帳號" autocomplete="off" />
+              <input id="new-admin-password" type="password" placeholder="密碼（至少 6 碼）" autocomplete="new-password" />
+              <button onclick="createAdmin()">新增管理員</button>
+            </div>
+            <div id="create-admin-msg" class="msg"></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>全部帳號</h2>
+          <div class="inner" style="padding:0">
+            <table>
+              <thead>
+                <tr><th>帳號</th><th>身分</th><th>編號</th><th></th></tr>
+              </thead>
+              <tbody id="users-rows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="statusbar">
+    <div id="status-left"><span class="lock">🔒</span> 需要登入才能瀏覽這個目錄</div>
+    <div id="status-right">未連線</div>
+  </div>
 </div>
 
-<div id="app-section">
-  <div class="card top-bar">
-    <p class="idle-note">閒置將自動登出，剩餘 <span id="idle-countdown">300</span> 秒</p>
-    <button class="secondary small" onclick="logout()">登出</button>
-  </div>
-
-  <div class="card">
-    <h3>新增管理員</h3>
-    <input id="new-admin-username" placeholder="帳號" />
-    <input id="new-admin-password" type="password" placeholder="密碼（至少 6 碼）" />
-    <button onclick="createAdmin()">新增管理員</button>
-    <div id="create-admin-msg" class="msg"></div>
-  </div>
-
-  <div class="card">
-    <h3>所有使用者</h3>
-    <table id="users-table">
-      <thead><tr><th>帳號</th><th>管理員</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
-  </div>
-
-  <div class="card">
-    <h3>所有檔案</h3>
-    <table id="files-table">
-      <thead><tr><th>擁有者</th><th>檔名</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
-  </div>
-</div>
+<div class="footer">hfs ~ http file server</div>
 
 <script>
+/* ============================================================
+   未登入時顯示的「鎖住」清單
+   這些只是佔位資料，不會、也不可能洩漏真實檔名 —
+   真實清單要登入後才會向伺服器索取。
+   ============================================================ */
+const LOCKED_ROWS = [
+  { name: '████████████.zip', size: '— — —', time: '——-——-—— ——:——' },
+  { name: '██████.pdf',       size: '— — —', time: '——-——-—— ——:——' },
+  { name: '█████████.png',    size: '— — —', time: '——-——-—— ——:——' },
+  { name: '███████████.csv',  size: '— — —', time: '——-——-—— ——:——' },
+  { name: '████.txt',         size: '— — —', time: '——-——-—— ——:——' },
+  { name: '█████████████.mp4',size: '— — —', time: '——-——-—— ——:——' },
+  { name: '███████.docx',     size: '— — —', time: '——-——-—— ——:——' },
+];
+
+function renderLockedRows() {
+  const tbody = document.getElementById('locked-rows');
+  tbody.innerHTML = '';
+  LOCKED_ROWS.forEach((r) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      `<td class="name"><span class="lockicon">🔒</span>${r.name}</td>` +
+      `<td class="num">${r.size}</td>` +
+      `<td class="num">${r.time}</td>` +
+      `<td class="num">拒絕存取</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function tickClock() {
+  const el = document.getElementById('server-clock');
+  if (el) el.textContent = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+}
+
+function setStatus(left, right) {
+  document.getElementById('status-left').innerHTML = left;
+  document.getElementById('status-right').textContent = right;
+}
+
+function showView(which) {
+  document.getElementById('view-locked').hidden = which !== 'locked';
+  document.getElementById('view-setup').hidden = which !== 'setup';
+  document.getElementById('view-admin').hidden = which !== 'admin';
+}
+
+function switchTab(which) {
+  document.getElementById('pane-files').hidden = which !== 'files';
+  document.getElementById('pane-users').hidden = which !== 'users';
+  document.getElementById('tab-files').setAttribute('aria-selected', which === 'files');
+  document.getElementById('tab-users').setAttribute('aria-selected', which === 'users');
+  document.getElementById('crumb').textContent = which === 'files' ? '/ 管理 / 檔案' : '/ 管理 / 使用者';
+}
+
+function say(id, text, kind) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'msg' + (kind ? ' ' + kind : '');
+}
+
+/* ---------------- 初次安裝 ---------------- */
+
+async function checkSetup() {
+  const res = await fetch('/api/setup');
+  if (!res.ok) return false;
+  const data = await res.json();
+  if (data.needsSetup) {
+    showView('setup');
+    document.getElementById('crumb').textContent = '/ 初次安裝';
+    setStatus('<span class="lock">⚙</span> 尚未初始化', '等待建立管理員');
+    return true;
+  }
+  return false;
+}
+
+async function runSetup() {
+  const username = document.getElementById('setup-username').value.trim();
+  const password = document.getElementById('setup-password').value;
+  say('setup-msg', '');
+
+  const res = await fetch('/api/setup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+  const data = await res.json();
+
+  if (!res.ok) return say('setup-msg', data.error || '建立失敗', 'error');
+
+  showLocked('管理員帳號已建立，請用它登入');
+  document.getElementById('login-username').value = username;
+  document.getElementById('login-password').focus();
+}
+
+/* ---------------- 登入 / 登出 ---------------- */
+
+function showLocked(message) {
+  showView('locked');
+  document.getElementById('crumb').textContent = '/';
+  setStatus('<span class="lock">🔒</span> 需要登入才能瀏覽這個目錄', '未連線');
+  say('login-msg', message || '', message ? 'ok' : '');
+}
+
 async function login() {
-  const username = document.getElementById('login-username').value;
+  const username = document.getElementById('login-username').value.trim();
   const password = document.getElementById('login-password').value;
-  const msg = document.getElementById('login-msg');
-  msg.textContent = '';
+  say('login-msg', '');
 
   const res = await fetch('/api/login', {
     method: 'POST',
@@ -113,53 +481,59 @@ async function login() {
 
   if (!res.ok) {
     const data = await res.json();
-    msg.textContent = data.error || '登入失敗';
-    msg.className = 'msg error';
-    return;
+    return say('login-msg', data.error || '登入失敗', 'error');
   }
 
   const check = await fetch('/api/admin/users');
   if (!check.ok) {
-    msg.textContent = '此帳號沒有管理員權限';
-    msg.className = 'msg error';
-    return;
+    await fetch('/api/logout', { method: 'POST' });
+    return say('login-msg', '此帳號沒有管理員權限', 'error');
   }
 
-  document.getElementById('login-box').style.display = 'none';
-  document.getElementById('app-section').style.display = 'block';
+  document.getElementById('login-password').value = '';
+  enterAdmin(username);
+}
+
+function enterAdmin(username) {
+  showView('admin');
+  switchTab('files');
+  setStatus(
+    `<span class="live">●</span> 已登入：${username}` +
+    ` &nbsp;|&nbsp; 閒置 <span id="idle-countdown">300</span> 秒後自動登出` +
+    ` &nbsp;|&nbsp; <button class="tiny" onclick="logout()">登出</button>`,
+    '連線中'
+  );
   loadUsers();
   loadFiles();
   startIdleTimer();
 }
 
-// ---------- 300 秒（5 分鐘）閒置自動登出 ----------
+/* ---------------- 300 秒閒置自動登出 ---------------- */
+
 const IDLE_LIMIT_MS = 300 * 1000;
+const IDLE_EVENTS = ['mousemove', 'keydown', 'click', 'touchstart', 'scroll'];
 let lastActivityAt = Date.now();
 let idleCheckInterval = null;
 
-function updateIdleCountdownDisplay() {
+function updateIdleCountdown() {
   const el = document.getElementById('idle-countdown');
   if (!el) return;
-  const remainingMs = IDLE_LIMIT_MS - (Date.now() - lastActivityAt);
-  const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
-  el.textContent = remainingSec;
+  const remaining = IDLE_LIMIT_MS - (Date.now() - lastActivityAt);
+  el.textContent = Math.max(0, Math.ceil(remaining / 1000));
 }
 
 function markActivity() {
   lastActivityAt = Date.now();
-  updateIdleCountdownDisplay();
+  updateIdleCountdown();
 }
 
 function startIdleTimer() {
   markActivity();
-  ['mousemove', 'keydown', 'click', 'touchstart', 'scroll'].forEach((evt) => {
-    document.addEventListener(evt, markActivity);
-  });
+  IDLE_EVENTS.forEach((e) => document.addEventListener(e, markActivity));
   if (idleCheckInterval) clearInterval(idleCheckInterval);
   idleCheckInterval = setInterval(() => {
-    updateIdleCountdownDisplay();
+    updateIdleCountdown();
     if (Date.now() - lastActivityAt > IDLE_LIMIT_MS) {
-      stopIdleTimer();
       logout('閒置超過 5 分鐘，已自動登出，請重新登入');
     }
   }, 1000);
@@ -168,140 +542,228 @@ function startIdleTimer() {
 function stopIdleTimer() {
   if (idleCheckInterval) clearInterval(idleCheckInterval);
   idleCheckInterval = null;
-  ['mousemove', 'keydown', 'click', 'touchstart', 'scroll'].forEach((evt) => {
-    document.removeEventListener(evt, markActivity);
-  });
+  IDLE_EVENTS.forEach((e) => document.removeEventListener(e, markActivity));
 }
 
 async function logout(message) {
   stopIdleTimer();
   await fetch('/api/logout', { method: 'POST' });
-  document.getElementById('app-section').style.display = 'none';
-  document.getElementById('login-box').style.display = 'block';
   document.getElementById('login-username').value = '';
   document.getElementById('login-password').value = '';
-  const msg = document.getElementById('login-msg');
-  if (message) {
-    msg.textContent = message;
-    msg.className = 'msg';
-  } else {
-    msg.textContent = '';
-  }
+  showLocked();
+  if (message) say('login-msg', message, '');
 }
 
-async function createAdmin() {
-  const username = document.getElementById('new-admin-username').value;
-  const password = document.getElementById('new-admin-password').value;
-  const msg = document.getElementById('create-admin-msg');
-  msg.textContent = '';
+/* ---------------- 讀取清單 ---------------- */
 
-  const res = await fetch('/api/admin/create-admin', {
+function sessionExpired(res) {
+  if (res.status === 401 || res.status === 403) {
+    stopIdleTimer();
+    showLocked();
+    say('login-msg', '登入已過期，請重新登入', 'error');
+    return true;
+  }
+  return false;
+}
+
+function emptyRow(tbody, colspan, text) {
+  const tr = document.createElement('tr');
+  tr.className = 'empty-row';
+  tr.innerHTML = `<td colspan="${colspan}">${text}</td>`;
+  tbody.appendChild(tr);
+}
+
+async function loadFiles() {
+  const res = await fetch('/api/admin/files');
+  if (sessionExpired(res)) return;
+  const data = await res.json();
+  const tbody = document.getElementById('files-rows');
+  tbody.innerHTML = '';
+
+  if (!data.files.length) return emptyRow(tbody, 4, '這個目錄是空的');
+
+  data.files.forEach((f) => {
+    const tr = document.createElement('tr');
+
+    const name = document.createElement('td');
+    name.className = 'name';
+    name.textContent = '📄 ' + f.filename;
+
+    const owner = document.createElement('td');
+    owner.className = 'num';
+    owner.textContent = f.owner;
+
+    const time = document.createElement('td');
+    time.className = 'num';
+    time.textContent = f.created_at || '—';
+
+    const act = document.createElement('td');
+    act.className = 'act';
+    const del = document.createElement('button');
+    del.className = 'tiny warn';
+    del.textContent = '刪除';
+    del.onclick = () => deleteFile(f.id, f.filename);
+    act.appendChild(del);
+
+    tr.append(name, owner, time, act);
+    tbody.appendChild(tr);
+  });
+}
+
+async function loadUsers() {
+  const res = await fetch('/api/admin/users');
+  if (sessionExpired(res)) return;
+  const data = await res.json();
+  const tbody = document.getElementById('users-rows');
+  tbody.innerHTML = '';
+
+  if (!data.users.length) return emptyRow(tbody, 4, '沒有任何帳號');
+
+  data.users.forEach((u) => {
+    const tr = document.createElement('tr');
+
+    const name = document.createElement('td');
+    name.className = 'name';
+    name.textContent = (u.is_admin ? '★ ' : '👤 ') + u.username;
+
+    const role = document.createElement('td');
+    role.className = 'num';
+    role.textContent = u.is_admin ? '管理員' : '一般使用者';
+
+    const id = document.createElement('td');
+    id.className = 'num';
+    id.textContent = '#' + u.id;
+
+    const act = document.createElement('td');
+    act.className = 'act';
+
+    const reset = document.createElement('button');
+    reset.className = 'tiny';
+    reset.textContent = '重置密碼';
+    reset.onclick = () => resetPassword(u.id, u.username);
+    act.appendChild(reset);
+
+    const del = document.createElement('button');
+    del.className = 'tiny warn';
+    del.textContent = '刪除';
+    del.onclick = () => deleteUser(u.id, u.username);
+    act.appendChild(del);
+
+    tr.append(name, role, id, act);
+    tbody.appendChild(tr);
+  });
+}
+
+/* ---------------- 建立帳號 ---------------- */
+
+async function createAccount(endpoint, userInputId, passInputId, msgId, okText) {
+  const username = document.getElementById(userInputId).value.trim();
+  const password = document.getElementById(passInputId).value;
+  say(msgId, '');
+
+  const res = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password })
   });
+  if (sessionExpired(res)) return;
   const data = await res.json();
 
-  if (res.ok) {
-    msg.textContent = '管理員帳號建立成功';
-    msg.className = 'msg ok';
-    document.getElementById('new-admin-username').value = '';
-    document.getElementById('new-admin-password').value = '';
-    loadUsers();
-  } else {
-    msg.textContent = data.error || '建立失敗';
-    msg.className = 'msg error';
-  }
+  if (!res.ok) return say(msgId, data.error || '建立失敗', 'error');
+
+  say(msgId, okText, 'ok');
+  document.getElementById(userInputId).value = '';
+  document.getElementById(passInputId).value = '';
+  loadUsers();
 }
 
+function createUser() {
+  createAccount('/api/admin/create-user', 'new-user-username', 'new-user-password',
+    'create-user-msg', '使用者帳號已建立');
+}
+
+function createAdmin() {
+  createAccount('/api/admin/create-admin', 'new-admin-username', 'new-admin-password',
+    'create-admin-msg', '管理員帳號已建立');
+}
+
+/* ---------------- 帳號 / 檔案操作 ---------------- */
+
 async function resetPassword(id, username) {
-  if (!confirm(`確定要重置「${username}」的密碼嗎？系統會產生一組新密碼。`)) return;
+  if (!confirm(`要重置「${username}」的密碼嗎？系統會產生一組新密碼。`)) return;
 
   const res = await fetch('/api/admin/reset-password', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id })
   });
+  if (sessionExpired(res)) return;
   const data = await res.json();
 
-  if (!res.ok) {
-    alert(data.error || '重置失敗');
-    return;
-  }
+  if (!res.ok) return alert(data.error || '重置失敗');
 
-  alert(`已重置「${data.username}」的密碼，新密碼為：\n\n${data.newPassword}\n\n請自行複製並轉交給使用者，此密碼之後不會再顯示。`);
+  alert(`已重置「${data.username}」的密碼，新密碼為：\n\n${data.newPassword}\n\n` +
+        `請複製後轉交給使用者，此密碼之後不會再顯示。使用者登入後可自行變更密碼。`);
 }
 
-async function loadUsers() {
-  const res = await fetch('/api/admin/users');
-  const data = await res.json();
-  const tbody = document.querySelector('#users-table tbody');
-  tbody.innerHTML = '';
+async function deleteUser(id, username) {
+  if (!confirm(`要刪除「${username}」嗎？這個帳號的所有檔案也會一併刪除。`)) return;
 
-  data.users.forEach((u) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${u.username}</td><td>${u.is_admin ? '是' : '否'}</td>`;
-    const td = document.createElement('td');
-
-    const resetBtn = document.createElement('button');
-    resetBtn.className = 'small secondary';
-    resetBtn.textContent = '重置密碼';
-    resetBtn.onclick = () => resetPassword(u.id, u.username);
-    td.appendChild(resetBtn);
-
-    const btn = document.createElement('button');
-    btn.className = 'danger small';
-    btn.textContent = '刪除';
-    btn.onclick = () => deleteUser(u.id);
-    td.appendChild(btn);
-
-    tr.appendChild(td);
-    tbody.appendChild(tr);
-  });
-}
-
-async function loadFiles() {
-  const res = await fetch('/api/admin/files');
-  const data = await res.json();
-  const tbody = document.querySelector('#files-table tbody');
-  tbody.innerHTML = '';
-
-  data.files.forEach((f) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${f.owner}</td><td>${f.filename}</td>`;
-    const td = document.createElement('td');
-    const btn = document.createElement('button');
-    btn.className = 'danger';
-    btn.textContent = '刪除';
-    btn.onclick = () => deleteFile(f.id);
-    td.appendChild(btn);
-    tr.appendChild(td);
-    tbody.appendChild(tr);
-  });
-}
-
-async function deleteUser(id) {
-  if (!confirm('確定要刪除這個使用者？他的所有檔案也會一併刪除。')) return;
   const res = await fetch('/api/admin/delete-user', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id })
   });
+  if (sessionExpired(res)) return;
   const data = await res.json();
+
   if (!res.ok) return alert(data.error || '刪除失敗');
   loadUsers();
   loadFiles();
 }
 
-async function deleteFile(id) {
-  if (!confirm('確定要刪除這個檔案？')) return;
-  await fetch('/api/admin/delete-file', {
+async function deleteFile(id, filename) {
+  if (!confirm(`要刪除「${filename}」嗎？`)) return;
+
+  const res = await fetch('/api/admin/delete-file', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id })
   });
+  if (sessionExpired(res)) return;
   loadFiles();
 }
+
+/* ---------------- 啟動 ---------------- */
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  const id = document.activeElement && document.activeElement.id;
+  if (id === 'login-username' || id === 'login-password') login();
+  if (id === 'setup-username' || id === 'setup-password') runSetup();
+});
+
+(async () => {
+  renderLockedRows();
+  tickClock();
+  setInterval(tickClock, 1000);
+
+  try {
+    // 已經有有效的管理員 session 就直接進後台
+    const check = await fetch('/api/admin/users');
+    if (check.ok) {
+      const me = await fetch('/api/me');
+      const name = me.ok ? (await me.json()).username : '管理員';
+      return enterAdmin(name);
+    }
+
+    if (await checkSetup()) return;
+    showLocked();
+  } catch {
+    showLocked();
+    say('login-msg', '無法連線到伺服器，請重新整理頁面', 'error');
+  }
+})();
 </script>
 
 </body>

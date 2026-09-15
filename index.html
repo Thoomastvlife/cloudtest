@@ -22,6 +22,7 @@
     padding: 20px;
     margin-bottom: 20px;
   }
+  .card h3 { margin-top: 0; }
   input {
     width: 100%;
     padding: 10px;
@@ -31,6 +32,7 @@
     background: #0f1115;
     color: #eee;
   }
+  input:focus-visible { outline: 2px solid #3b82f6; outline-offset: 1px; }
   button {
     width: 100%;
     padding: 10px;
@@ -44,10 +46,12 @@
   }
   button.secondary { background: #333; }
   button:hover { opacity: 0.9; }
+  button:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
   .msg { font-size: 13px; margin-top: 8px; min-height: 18px; }
   .msg.error { color: #f87171; }
   .msg.ok { color: #4ade80; }
-  ul { list-style: none; padding: 0; }
+  .hint { font-size: 12px; color: #9ca3af; margin: -4px 0 14px; }
+  ul { list-style: none; padding: 0; margin: 0; }
   li {
     display: flex;
     justify-content: space-between;
@@ -59,9 +63,13 @@
   li button { width: auto; padding: 4px 10px; font-size: 12px; margin-left: 6px; }
   li .filename { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
   li .actions { display: flex; flex-shrink: 0; }
+  .empty { color: #9ca3af; font-size: 13px; padding: 8px 0; }
   button.danger { background: #dc2626; }
   button.outline { background: transparent; border: 1px solid #3b82f6; }
   #app-section { display: none; }
+  .top-line { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .top-line p { margin: 0; }
+  .top-line button { width: auto; padding: 4px 12px; margin: 0; }
   .modal-overlay {
     display: none;
     position: fixed;
@@ -81,11 +89,7 @@
     max-width: 420px;
   }
   .modal-box h3 { margin-top: 0; }
-  .modal-box input {
-    font-size: 12px;
-    background: #0f1115;
-  }
-  .modal-box .hint { font-size: 12px; color: #9ca3af; margin: -8px 0 14px; }
+  .modal-box input { font-size: 12px; background: #0f1115; }
 </style>
 </head>
 <body>
@@ -93,28 +97,18 @@
 <h1>📦 臨時檔案庫</h1>
 
 <div id="auth-section" class="card">
-  <div id="login-box">
-    <h3>登入</h3>
-    <input id="login-username" placeholder="帳號" />
-    <input id="login-password" type="password" placeholder="密碼" />
-    <button onclick="login()">登入</button>
-    <button class="secondary" onclick="toggleForm('register')">還沒有帳號？註冊</button>
-    <div id="login-msg" class="msg"></div>
-  </div>
-
-  <div id="register-box" style="display:none">
-    <h3>註冊</h3>
-    <input id="register-username" placeholder="帳號" />
-    <input id="register-password" type="password" placeholder="密碼（至少 6 碼）" />
-    <button onclick="register()">註冊</button>
-    <button class="secondary" onclick="toggleForm('login')">已經有帳號？登入</button>
-    <div id="register-msg" class="msg"></div>
-  </div>
+  <h3>登入</h3>
+  <input id="login-username" placeholder="帳號" autocomplete="username" />
+  <input id="login-password" type="password" placeholder="密碼" autocomplete="current-password" />
+  <button onclick="login()">登入</button>
+  <div id="login-msg" class="msg"></div>
+  <p class="hint">帳號由管理員建立。需要帳號或忘記密碼，請聯絡管理員。</p>
 </div>
 
 <div id="app-section">
-  <div class="card">
-    <p>已登入：<strong id="current-user"></strong> <button class="secondary" style="width:auto;padding:4px 12px;float:right" onclick="logout()">登出</button></p>
+  <div class="card top-line">
+    <p>已登入：<strong id="current-user"></strong></p>
+    <button class="secondary" onclick="logout()">登出</button>
   </div>
 
   <div class="card">
@@ -128,39 +122,46 @@
     <h3>我的檔案</h3>
     <ul id="file-list"></ul>
   </div>
+
+  <div class="card">
+    <h3>變更密碼</h3>
+    <input id="old-password" type="password" placeholder="目前密碼" autocomplete="current-password" />
+    <input id="new-password" type="password" placeholder="新密碼（至少 6 碼）" autocomplete="new-password" />
+    <input id="new-password2" type="password" placeholder="再輸入一次新密碼" autocomplete="new-password" />
+    <button onclick="changePassword()">變更密碼</button>
+    <div id="change-password-msg" class="msg"></div>
+  </div>
+</div>
+
+<div id="share-modal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>🔗 公開分享連結</h3>
+    <p class="hint">任何拿到這個連結的人都可以下載此檔案，連結將在 24 小時後自動失效。</p>
+    <input id="share-link-input" readonly />
+    <div id="share-expire-msg" class="msg"></div>
+    <button onclick="copyShareLink()">複製連結</button>
+    <button class="secondary" onclick="closeShareModal()">關閉</button>
+  </div>
 </div>
 
 <script>
-function toggleForm(which) {
-  document.getElementById('login-box').style.display = which === 'login' ? 'block' : 'none';
-  document.getElementById('register-box').style.display = which === 'register' ? 'block' : 'none';
+function showLogin(message) {
+  document.getElementById('app-section').style.display = 'none';
+  document.getElementById('auth-section').style.display = 'block';
+  const msg = document.getElementById('login-msg');
+  msg.textContent = message || '';
+  msg.className = 'msg';
 }
 
-async function register() {
-  const username = document.getElementById('register-username').value;
-  const password = document.getElementById('register-password').value;
-  const msg = document.getElementById('register-msg');
-  msg.textContent = '';
-
-  const res = await fetch('/api/register', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password })
-  });
-  const data = await res.json();
-
-  if (res.ok) {
-    msg.textContent = '註冊成功，請登入';
-    msg.className = 'msg ok';
-    toggleForm('login');
-  } else {
-    msg.textContent = data.error || '註冊失敗';
-    msg.className = 'msg error';
-  }
+function showApp(username) {
+  document.getElementById('auth-section').style.display = 'none';
+  document.getElementById('app-section').style.display = 'block';
+  document.getElementById('current-user').textContent = username;
+  loadFiles();
 }
 
 async function login() {
-  const username = document.getElementById('login-username').value;
+  const username = document.getElementById('login-username').value.trim();
   const password = document.getElementById('login-password').value;
   const msg = document.getElementById('login-msg');
   msg.textContent = '';
@@ -173,7 +174,8 @@ async function login() {
   const data = await res.json();
 
   if (res.ok) {
-    showApp(username);
+    document.getElementById('login-password').value = '';
+    showApp(data.username || username);
   } else {
     msg.textContent = data.error || '登入失敗';
     msg.className = 'msg error';
@@ -182,15 +184,56 @@ async function login() {
 
 async function logout() {
   await fetch('/api/logout', { method: 'POST' });
-  document.getElementById('app-section').style.display = 'none';
-  document.getElementById('auth-section').style.display = 'block';
+  document.getElementById('login-username').value = '';
+  document.getElementById('login-password').value = '';
+  showLogin();
 }
 
-function showApp(username) {
-  document.getElementById('auth-section').style.display = 'none';
-  document.getElementById('app-section').style.display = 'block';
-  document.getElementById('current-user').textContent = username;
-  loadFiles();
+async function changePassword() {
+  const oldPassword = document.getElementById('old-password').value;
+  const newPassword = document.getElementById('new-password').value;
+  const confirmPassword = document.getElementById('new-password2').value;
+  const msg = document.getElementById('change-password-msg');
+  msg.textContent = '';
+
+  if (newPassword !== confirmPassword) {
+    msg.textContent = '兩次輸入的新密碼不一致';
+    msg.className = 'msg error';
+    return;
+  }
+
+  const res = await fetch('/api/change-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ oldPassword, newPassword })
+  });
+
+  if (res.status === 401 && !(await peekIsPasswordError(res))) return;
+
+  const data = await res.json();
+
+  if (res.ok) {
+    msg.textContent = '密碼已更新，下次請用新密碼登入';
+    msg.className = 'msg ok';
+    document.getElementById('old-password').value = '';
+    document.getElementById('new-password').value = '';
+    document.getElementById('new-password2').value = '';
+  } else {
+    msg.textContent = data.error || '變更失敗';
+    msg.className = 'msg error';
+  }
+}
+
+// 401 可能是「舊密碼錯」也可能是「session 過期」，兩者要分開處理：
+// 前者留在畫面上顯示錯誤，後者直接把使用者踢回登入畫面。
+async function peekIsPasswordError(res) {
+  const clone = res.clone();
+  const data = await clone.json().catch(() => ({}));
+  if (data.error === '請先登入') {
+    showLogin('登入已過期，請重新登入');
+    return false;
+  }
+  return true;
 }
 
 async function uploadFile() {
@@ -233,14 +276,20 @@ async function uploadFile() {
 async function loadFiles() {
   const res = await fetch('/api/list');
   if (!res.ok) {
-    // session 過期，跳回登入畫面
-    document.getElementById('app-section').style.display = 'none';
-    document.getElementById('auth-section').style.display = 'block';
+    showLogin('登入已過期，請重新登入');
     return;
   }
   const data = await res.json();
   const list = document.getElementById('file-list');
   list.innerHTML = '';
+
+  if (!data.files.length) {
+    const li = document.createElement('li');
+    li.className = 'empty';
+    li.textContent = '目前沒有檔案，用上面的表單上傳第一個檔案。';
+    list.appendChild(li);
+    return;
+  }
 
   data.files.forEach((f) => {
     const li = document.createElement('li');
@@ -292,8 +341,7 @@ async function shareFile(id) {
   input.value = data.url;
 
   const expireMsg = document.getElementById('share-expire-msg');
-  const expireDate = new Date(data.expiresAt);
-  expireMsg.textContent = `此連結將於 ${expireDate.toLocaleString()} 失效`;
+  expireMsg.textContent = `此連結將於 ${new Date(data.expiresAt).toLocaleString()} 失效`;
   expireMsg.className = 'msg';
 
   document.getElementById('share-modal').classList.add('show');
@@ -354,27 +402,15 @@ async function downloadFile(id, filename) {
   link.click();
 }
 
-// 頁面載入時先確認是否已經登入（有效 session）
+// 頁面載入時確認是否已經有有效 session，有的話直接進入主畫面
 (async () => {
-  const res = await fetch('/api/list');
+  const res = await fetch('/api/me');
   if (res.ok) {
-    // 有效登入中，但不知道 username，簡易處理：顯示為「已登入」
-    showApp('（登入中）');
+    const me = await res.json();
+    showApp(me.username);
   }
 })();
 </script>
-
-
-<div id="share-modal" class="modal-overlay">
-  <div class="modal-box">
-    <h3>🔗 公開分享連結</h3>
-    <p class="hint">任何拿到這個連結的人都可以下載此檔案，連結將在 24 小時後自動失效。</p>
-    <input id="share-link-input" readonly />
-    <div id="share-expire-msg" class="msg"></div>
-    <button onclick="copyShareLink()">複製連結</button>
-    <button class="secondary" onclick="closeShareModal()">關閉</button>
-  </div>
-</div>
 
 </body>
 </html>
