@@ -355,7 +355,7 @@ function renderQuota(used, quota, retentionDays) {
   const retention = document.getElementById('retention-text');
 
   box.hidden = false;
-  retention.textContent = retentionDays > 0 ? `上傳滿 ${retentionDays} 天自動刪除` : '不會自動刪除';
+  retention.textContent = retentionDays > 0 ? `上傳後 ${retentionDays} 天自動刪除` : '不會自動刪除';
 
   if (!quota) {
     text.textContent = `已使用 ${formatBytes(used)}（未設容量上限）`;

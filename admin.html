@@ -257,7 +257,7 @@
 
     <label for="settings-retention">檔案保留天數</label>
     <input id="settings-retention" type="number" min="0" step="1" />
-    <p class="hint">填 0 代表永久保留。設定天數後，超過天數的檔案會在有人瀏覽清單或上傳時自動刪除。</p>
+    <p class="hint">填 0 代表永久保留。設定天數後，每個檔案會從「自己上傳的時間」開始算，滿設定天數就自動刪除（例如設 1 天 = 上傳後 24 小時），會在有人瀏覽清單或上傳時順手清除。</p>
 
     <div id="settings-msg" class="msg"></div>
     <div class="buttons">
@@ -527,7 +527,7 @@ async function loadUsers() {
 
     const retention = document.createElement('td');
     retention.className = 'dim';
-    retention.textContent = u.retentionDays > 0 ? `${u.retentionDays} 天後` : '不自動刪除';
+    retention.textContent = u.retentionDays > 0 ? `上傳後 ${u.retentionDays} 天` : '不自動刪除';
 
     const act = document.createElement('td');
     act.className = 'act';
